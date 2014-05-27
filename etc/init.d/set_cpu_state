@@ -1,0 +1,174 @@
+#!/bin/sh
+#
+# set_cpu_state
+#
+# chkconfig: 345 99 99
+# description:	Set CPU Frequency States
+#
+### BEGIN INIT INFO
+# Provides: set_cpu_state
+# Required-Start: 
+# Required-Stop:
+# Default-Start: 99
+# Default-Stop: 99
+# Short-Description: start and stop set_cpu_state
+# Description: Start and stop set_cpu_state
+### END INIT INFO
+
+#
+# 2012.11.06 Brian Elliott Finley <bfinley@us.ibm.com>
+#  - Created
+# 2013.02.25 Brian Elliott Finley <bfinley@us.ibm.com>
+# - allow "status" execution without requiring config file
+#
+
+PATH=/usr/sbin:/sbin:/usr/bin:/bin
+
+#
+# Consider moving to /etc/hpc_goodies/hpc_goodies.functions, but for now
+# assume it's in the same directory as the script.
+#
+FUNCTIONS="$(dirname $0)/hpc_goodies.functions"
+PROGNAME=$(basename $0)
+CONFIG=/etc/sysconfig/set_cpu_state
+
+
+read_config() {
+    if [ ! -e $CONFIG ]; then
+        echo "Please edit /etc/sysconfig/set_cpu_state to populate these variables"
+        echo "with appropriate values.  The values below are just examples.  Recommended"
+        echo "values for optimal performance under many circumstances are indicated."
+        echo 
+        echo "  GOVERNER=(conservative|ondemand|userspace|powersave|performance)"
+        echo "  #                                                   ^^^^^^^^^^^"
+        echo "  MAX_FREQ=(2601000)"
+        echo "  # Recommended:  If left blank, it will automatically be chosen."
+        echo "  #"
+        echo "  MIN_FREQ=2600000"
+        echo "  # Recommended:  If left blank, it will automatically be chosen."
+        echo "  #"
+        echo "  USE_TURBO=(yes|no)"
+        echo "  #          ^^^"
+        echo "  USE_HYPERTHREADING=(yes|no)"
+        echo "  #                       ^^"
+        echo "  C1E=(on|off)"
+        echo "  #       ^^^"
+        echo "  C_STATE_LIMIT=(off|0|1|2|3|4|5)"
+        echo "  #                      ^"
+        echo 
+        exit 0
+    fi
+
+    . /etc/sysconfig/set_cpu_state
+    . $FUNCTIONS
+}
+
+start() {
+
+    read_config
+
+    # Set this first, so that the other settings apply to the
+    # hyperthread cores also.
+    set_HYPERTHREADING_STATE
+
+    set_GOVERNER
+    set_MIN_FREQ
+
+    echo $USE_TURBO | egrep -q -i '(yes|on|enabled|engaged)'
+    if [ $? -eq 0 ]; then
+        set_TURBO_ON
+    else
+        set_MAX_FREQ
+    fi
+
+    echo $C1E_STATE | egrep -q -i '(yes|on|enabled|engaged)'
+    if [ $? -eq 0 ]; then
+        set_C1E_ENABLED
+    else
+        set_C1E_DISABLED
+    fi
+
+    set_C_STATE_LIMIT
+}
+
+status() {
+
+    read_config
+
+    get_CPU_SOCKETS
+    echo "Sockets:               $my_CPU_SOCKETS_COUNT"
+
+    get_CPU_TOTAL_REAL_CORES
+    echo "Total Real Cores:      $my_CPU_TOTAL_REAL_CORES_COUNT"
+
+    get_GOVERNER_ACTIVE
+    echo "$my_GOVERNER_ACTIVE" | while read line
+    do
+        echo "Scaling Governer:      $line"
+    done
+
+    get_TURBO_HW_STATE
+    echo "Turbo in HW:           $my_TURBO_HW_STATE"
+
+    get_TURBO_ENGAGED
+    echo "Turbo in OS:           $my_TURBO_ENGAGED"
+
+    get_MAX_FREQ_ACTIVE
+    echo "$my_MAX_FREQ_ACTIVE" | while read line
+    do
+        echo "MAX Freq Setting:      $line"
+    done
+
+    get_MIN_FREQ_ACTIVE
+    echo "$my_MIN_FREQ_ACTIVE" | while read line
+    do
+        echo "MIN Freq Setting:      $line"
+    done
+
+    get_HYPERTHREADING_STATE
+    get_CPU_ACTIVE_REAL_CORES
+    echo "HyperThreading in HW:  $my_HYPERTHREADING_HW_STATE" 
+    echo "HyperThreading in OS:  $my_HYPERTHREADING_OS_STATE" 
+    echo "Active Real Cores:     $my_CPU_ACTIVE_REAL_CORES_COUNT"
+    echo "Active Hyper Cores:    $my_CPU_ACTIVE_HYPERTHREAD_CORES_COUNT"
+
+    get_C_STATE_LIMIT
+    echo "C State Limit:         $my_C_STATE_LIMIT"
+
+    get_C1E_STATE
+    echo "$my_C1E_STATE_SUMMARY" | while read line
+    do
+        echo "C1E State:             $line"
+    done
+    # Maybe do the below with a "details" option later?
+    #echo "$my_C1E_STATE" | while read line
+    #do
+    #    echo "C1E State:             $line"
+    #done
+}
+
+
+case "$1" in
+    start)
+        read_config
+	    start
+	;;
+    stop)
+	;;
+    restart)
+        read_config
+	    start
+	;;
+    status)
+        # Not necessary to read config here, and allows for running on a
+        # node that does not yet have a config. -BEF-
+        status
+	;;
+    *)
+	echo "Usage: $PROGNAME {start|stop|restart|status}"
+	RETVAL=2
+	;;
+esac
+
+exit $RETVAL
+
