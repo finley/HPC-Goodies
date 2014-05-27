@@ -1,0 +1,69 @@
+#!/bin/sh
+#
+# gpfs_syslogging
+#
+# chkconfig: 3 59 23
+# description:	Starts and stops gpfs syslogging
+#
+### BEGIN INIT INFO
+# Provides: iptables
+# Required-Start:
+# Required-Stop:
+# Default-Start: 3
+# Default-Stop: 0 1 6
+# Short-Description: start and stop gpfs syslogging
+# Description: Start and stop gpfs syslogging
+### END INIT INFO
+
+#
+# 2012.07.30 Brian Elliott Finley <bfinley@us.ibm.com>
+#  - Created
+# 2014.05.26 Brian Elliott Finley <bfinley@us.ibm.com>
+#  - Improve, so that only the init script is needed (no
+#  separate /usr/bin/gpfs_syslogging anymore), and more importantly,
+#  don't block closure of an ssh session when issued over an ssh
+#  connection with batch mode on.
+#
+
+PATH=/usr/bin:/bin
+PID_FILE=/var/run/gpfs_syslogging.pid
+
+start() {
+    /usr/bin/tail -n 100 -F /var/adm/ras/mmfs.log.latest 2>/dev/null | /usr/bin/logger -t GPFS &
+	RETVAL=$?
+    PID=$$
+
+    #
+    # Get the PIDs of the child processes above (we're interested in tail and
+    # logger), but omit the child processes of the tools we use to get the PIDs
+    # of the other child processes.  If there's a better way to do this, please
+    # tell me. -BEF-
+    #
+	ps --ppid $PID -o pid=,comm= | egrep -vw '(ps|egrep|awk)' | awk '{print $1}' > $PID_FILE
+}
+
+stop() {
+	test -e $PID_FILE && kill `cat $PID_FILE` || /bin/false
+	RETVAL=$?
+	rm -f $PID_FILE
+}
+
+case "$1" in
+    start)
+	start
+	;;
+    stop)
+	stop
+	;;
+    restart)
+	stop
+	start
+	;;
+    *)
+	echo $"Usage: $0 {start|stop|restart}"
+	RETVAL=2
+	;;
+esac
+
+exit $RETVAL
+
