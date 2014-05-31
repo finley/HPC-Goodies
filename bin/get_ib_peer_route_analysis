@@ -1,0 +1,145 @@
+#!/usr/bin/env perl
+#if you need to use this..... good luck... you'll need it...
+#currently it stops short of making a sufficient evaluation of likelihood of 
+#path collision in the scheme of things, it just 
+#reports ratio of routes that have non-zero chance of collision, no matter how
+#small or large, this would be a welcome change.
+#as it stands, 'eyeballing' the reported conflicts is your best bet
+#example output line:
+#3 at "MF0;ys78ib1:SXX536/L01/U1" shared by: ys0158(1032)->ys0269(1229) : ys0166(1207)->ys0251(1039)
+#means port 3 on MF0;ys78ib1:SXX536/L01/U1 will be used by ys0158 to talk to ys0269 and would alse be used by ys0166 talking to ys0251
+#the cautionary tale of the statistics:
+#Paths contended: 9050/10368
+#Readers: 4952 of 5184 (95.5%)
+#Writers: 4098 of 5184 (79.1%)
+#in this case, the benchmark actually isn't too terribly bad on average, so don't
+#put *too* much faith in the percentages, as obev
+
+
+
+#change '@slids' below to try out different things instead of where the nsds currently are
+my $nr = $ARGV[0];
+my $onr = $ARGV[1];
+use Data::Dumper;
+use strict;
+my @clids = `psh $nr "ibv_devinfo|grep -B5 link_layer.*IB|grep port_lid"`;
+my $nodename;
+my %lidtonodename;
+foreach (@clids) {
+    s/^(.*?):.*:[ \t]*//;
+    $nodename = $1;
+    chomp;
+    $lidtonodename{$_}=$nodename;
+}
+#my @slids = `ssh glademgt1-ib psh nsd1-nsd18 ibv_devinfo|grep port_lid`;
+#my @slids = `psh ys3101,ys3119,ys3201,ys3219,ys3301,ys3319,ys3401,ys3419,ys3501,ys3519,ys3601,ys3619,ys3701,ys3719,ys3801,ys3819,ys3901,ys3918 ibv
+_devinfo|grep port_lid`;
+#my @slids = `psh ys3101-ys3118 ibv_devinfo|grep port_lid`;
+my @slids = `psh $onr ibv_devinfo|grep port_lid`;
+foreach (@slids) {
+    s/^(.*?):.*:[ \t]*//;
+    $nodename = $1;
+    chomp;
+    $lidtonodename{$_}=$nodename;
+}
+my $slid;
+my $clid;
+my $route;
+my %tsrouteusage;
+my %tsroutecount;
+my %fsrouteusage;
+my %slidmap; #
+my $swlidname; #the human friendly name for a switch lid
+my $swlid; #a switch lid
+my $portnum;#port number on a lid
+my $targownership;
+my @targownerreference=({},{});
+
+            #ok... there is good path sharing (common endpoints that must be shared means its best for as many components as possible to be shared 
+anyway)
+            # e.g. the same spine port being used by nsd1 to talk to an ys3601 and ys3602  on the other end of the fabric is good
+            # converse example, the same orca port used by all nsd servers to talk to ys3601...
+            # now bad path sharing, if ys4601 talking to nsd1 shares a link with ys4602 talking to nsd2... that's bad..
+            # so the way I'm modeling it, every fabric link should have no more than one source 'owner' and one 'target' owner.
+            # this is done once in each direction
+my %afflictedpaths;
+my $numpaths=0;  
+foreach $slid (@slids) {
+    foreach $clid (@clids) {
+        my $lidpair;
+        my $txmode;
+        $txmode=0;
+        foreach $lidpair ([$clid,$slid],[$slid,$clid]) { #evaluate both directions
+            $numpaths++;
+            $targownership=$targownerreference[$txmode]; #we maintain one set of ownership maps in tx, one for rx..
+            $txmode++;
+            my $srclid = $lidpair->[0];
+            my $targlid = $lidpair->[1];
+        my @tsroutedata = `ibtracert --Ca mlx4_1 $srclid $targlid`;
+        my $route;
+        my $stage=0;
+        my $thisrouteconflicted=0;
+        foreach $route (@tsroutedata) {
+            unless ($route =~ /switch port/) { next; } #only caring about switch situation
+
+            $stage++;
+            if ($stage == 1) { next; } #don't care about first landing into switch, can't *possibly* be contentious.
+            $route =~ m/switch port.*\[([^[]*)\] lid ([^ ]*) (.*)$/;
+            $portnum=$1;
+            $swlid=$2;
+            $swlidname=$3;
+            chomp($route);
+            if (ref $targownership->{$swlid}->{$portnum}) { # and $targownership{$swlid}->{$portnum} ne $targlid) {
+                foreach my $currlid (keys %{$targownership->{$swlid}->{$portnum}}) {
+                    if ($currlid eq $targlid) { next; } #ignore target lid's existing ownership of the port
+                    if ($targownership->{$swlid}->{$portnum}->{$currlid} eq $srclid) {  next; } #ok, someone else 'owns' it, but in the name of talking to the same peer, it checks out...
+                    #still in loop, this means that there is an owner that is not us trying to talk to a different peer than we deem appropriate
+                    unless ($thisrouteconflicted++) { #don't bother counting the same conflict path multiple times
+                        $afflictedpaths{"$srclid:$targlid"}->{type}=$txmode;
+                        $afflictedpaths{"$srclid:$targlid"}->{sharedhop}="$portnum at $swlidname";
+                        $afflictedpaths{"$srclid:$targlid"}->{conflicts}->{$targownership->{$swlid}->{$portnum}->{$currlid}.":$currlid"} = 1;
+                        $afflictedpaths{$targownership->{$swlid}->{$portnum}->{$currlid}.":$currlid"}->{conflicts}->{"$srclid:$targlid"} = 1;
+       $afflictedpaths{$targownership->{$swlid}->{$portnum}->{$currlid}.":$currlid"}->{type}=$txmode;
+                        $afflictedpaths{$targownership->{$swlid}->{$portnum}->{$currlid}.":$currlid"}->{sharedhop}="$portnum at $swlidname";
+                    }
+                }
+            }
+            $targownership->{$swlid}->{$portnum}->{$targlid}=$srclid; # claim ownership of the link element
+        }
+        }
+    }
+}
+print "Reader path contentions: \n";
+my $dupereaders=0;
+foreach (keys %afflictedpaths) {
+    if ($afflictedpaths{$_}->{type} == 1) { next; }
+    $dupereaders++;
+    my $src;
+    my $dst;
+    ($src,$dst) = split /:/,$_;
+    print $afflictedpaths{$_}->{sharedhop}. " shared by: ".$lidtonodename{$src}. "($src)->".$lidtonodename{$dst}."($dst) : ";#.scalar(keys %{$afflictedpaths{$_}->{conflicts}})." times over\n"; #reporting 17 is misleading, if the targ or src lids match then it's really one meaningful conflict with a well-optimized path sharing situation
+    foreach (keys %{$afflictedpaths{$_}->{conflicts}}) {
+        ($src,$dst) = split /:/,$_;
+        print $lidtonodename{$src}."($src)->".$lidtonodename{$dst}."($dst)\n";
+        last;
+    }
+}
+print "Writer path contenions: \n";
+my $dupewriters=0;
+foreach (keys %afflictedpaths) {
+    if ($afflictedpaths{$_}->{type} != 1) { next; }
+    $dupewriters++;
+    my $src;
+    my $dst;
+    ($src,$dst) = split /:/,$_;
+    print $afflictedpaths{$_}->{sharedhop}. " shared by: ".$lidtonodename{$src}."($src)->".$lidtonodename{$dst}."($dst) : ";#.scalar(keys %{$afflictedpaths{$_}->{conflicts}})." times over\n";
+    foreach (keys %{$afflictedpaths{$_}->{conflicts}}) {
+        ($src,$dst) = split /:/,$_;
+        print $lidtonodename{$src}."($src)->".$lidtonodename{$dst}."($dst)\n";
+        last;
+    }
+}
+print "Paths contended: ".scalar (keys %afflictedpaths)."/$numpaths\n";
+print "Readers: $dupereaders of ".$numpaths/2 . " (".sprintf("%.1f",$dupereaders/($numpaths/2.0)*100) ."%)\n";
+print "Writers: $dupewriters of ".$numpaths/2 . " (".sprintf("%.1f",$dupewriters/($numpaths/2.0)*100) ."%)\n";
+
