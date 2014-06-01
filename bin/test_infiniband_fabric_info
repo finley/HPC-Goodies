@@ -1,0 +1,600 @@
+#!/usr/bin/perl -w
+
+#
+#   2013.10.17 Brian Elliott Finley <bfinley@us.ibm.com>
+#   - created
+#
+
+#
+# TODO
+#
+#   - add --run-ibdiagnet option
+#       - execute: $ibdiagnet_cmd
+#         "ibdiagnet --llr sw --symbol_err -P all=1 -ls 14 -lw 4x -pc --get_cable_info --pm_pause_time 600"
+#         "ibdiagnet --llr sw --symbol_err -P all=1 -lw 4x -pc --get_cable_info --pm_pause_time 600"
+#
+#   - add --tarball option
+#       - create a datestamped tarball as output that includes all of
+#         /var/tmp/ibdiagnet2/, plus the output from this program.
+#       - Place in /tmp/$tarballname
+#
+#   - add --xcat
+#       - produce an xcat noderange from nodes
+#
+
+use strict;
+use Getopt::Long;
+use File::Basename;
+
+my $version = '0.1';
+
+GetOptions(
+
+    "help"                              => \my $help,
+    "p2p"                               => \my $p2p,
+    "p2p-errors"                        => \my $p2p_errors,
+    "uplink-summary|uplinks-summary"    => \my $uplink_summary,
+    "uplink-details|uplinks-details"    => \my $uplink_details,
+    "ibdiagnet_dir=s"                   => \my $ibdiagnet_dir,
+
+) or usage() and exit(1);
+
+if(! defined $ibdiagnet_dir) {
+    $ibdiagnet_dir = '/var/tmp/ibdiagnet2/';
+}
+my $ibdiagnet_log = $ibdiagnet_dir . '/ibdiagnet2.log';
+my $ibdiagnet_csv = $ibdiagnet_dir . '/ibdiagnet2.db_csv';
+my $ibdiagnet_cables = $ibdiagnet_dir . '/ibdiagnet2.cables';
+
+if ( defined $help ) {
+    usage();
+    exit 0;
+
+}
+
+unless( $p2p or $p2p_errors or $uplink_summary or $uplink_details ) {
+    usage();
+    print qq(\nPlease try one of "--p2p" or "--p2p-errors" or "--uplink_summary" or "--uplink_details"\n\n);
+    exit 1;
+}
+
+if ( defined $p2p_errors and ! -e $ibdiagnet_log ) {
+    usage();
+    print qq(\nYou have specified "--p2p-errors", but the ibdiagnet log file doesn't exist:\n\n);
+    print qq(  $ibdiagnet_log\n\n);
+    exit 1;
+
+}
+
+if ( ! -e $ibdiagnet_csv ) {
+    usage();
+    print qq(\nI'm afraid the ibdiagnet csv file doesn't exist:\n\n);
+    print qq(  $ibdiagnet_csv\n\n);
+    exit 1;
+
+}
+
+
+my $file;
+my @output;
+my %nodes_by_guid;
+my %guid_n_port_p2p;
+my %switch_ports_with_errors;
+my %sm_priorities_by_guid;
+my %cables_by_node_guid;
+my %cables_by_partnumber_and_rev;
+
+if( -e $ibdiagnet_log ) {
+
+    #
+    # Let's read in the switch ports and node lids associated with any
+    # errors on the fabric.
+    #
+    $file = $ibdiagnet_log;
+    open(FILE,"<$file") or die("couldn't open $file for reading");
+    while(<FILE>) {
+    
+        chomp;
+    
+        #
+        # Sample input:
+        #
+        # -E- lid=0x0030 dev=51000 sx6536-0701-mgt2/L09/U1/P9
+        # -E- lid=0x0030 dev=51000 sx6536-0701-mgt2/L09/U1/P10   
+        #
+        if(m|^-E- lid=\S+\s+dev=\S+\s+(.*)/P(\d+)|) {
+    
+            my $switch = $1;
+            my $port   = $2;
+    
+            $switch_ports_with_errors{"$switch,$port"} = 1;
+        }
+    }
+    close(FILE);
+}
+
+#
+# Now let's read in a listing of node names and their associated lids.
+#
+my $max_width_nodename = 0;
+my $active_section;
+$file = $ibdiagnet_csv;
+open(FILE,"<$file") or die("couldn't open $file for reading");
+while(<FILE>) {
+
+    chomp;
+
+    if( ! defined($active_section) ) {
+        #
+        # We don't have an active section, so just watch for one we're
+        # interested in to pop up.
+        #
+        if(m|^START_NODES$|) {
+            $active_section = 'NODES';
+
+        } elsif (m|^START_LINKS$|){
+            $active_section = 'LINKS';
+
+        } elsif (m|^START_SM_INFO$|){
+            $active_section = 'SM_INFO';
+
+        }
+
+    } else {
+
+        #
+        # Watch for the end of a section
+        #
+        if (m|^END_NODES$|){
+            $active_section = undef;
+
+        } elsif (m|^END_LINKS$|){
+            $active_section = undef;
+
+        } elsif (m|^END_SM_INFO$|){
+            $active_section = undef;
+
+        }
+
+        # 
+        # Process each section as appropriate.
+        # 
+        elsif( $active_section eq 'NODES' ) {
+            #
+            # Sample input:
+            #
+            #   START_NODES
+            #   NodeDesc,NumPorts,NodeType,ClassVersion,BaseVersion,SystemImageGUID,NodeGUID,PortGUID,DeviceID,PartitionCap,revision,VendorID,LocalPortNum
+            #   "clnxcat01 HCA-1",2,1,1,1,0x0002c903001a1333,0x0002c903001a1330,0x0002c903001a1331,4099,128,0,713,1
+            #   "MF0;sx6536-0701-mgt1:SXX536/L08/U1",36,2,1,1,0x0002c9030046b5e0,0x0002c90300ab7620,0x0002c90300ab7620,51000,8,161,713,10
+            #
+            next if(m/^NodeDesc,NumPorts/); # Skip header
+
+            my @line = split(/,/);
+            
+            my $node_name = $line[0];
+            my $node_guid = $line[6];
+
+            #
+            # The quotes kinda make it hard to read in the output and are unnecessary at this point.  # This could change, if
+            # commas are added to any quoted fields, at which point we'll just have to use a CSV file module.
+            #
+            $node_name =~ s/"//g;     
+
+            #
+            # Also strip off the "MFO" bit that prefixes switch names.  Einas -- What does that stand for?
+            #
+            $node_name =~ s/^MF0;//g;     
+
+            #
+            # And the ":SXX536" bit too
+            #
+            $node_name =~ s|:(.*?)/|/|g;     
+
+            $nodes_by_guid{$node_guid} = $node_name;
+
+            my $width = length $node_name;
+            if( $width gt $max_width_nodename ) {
+                $max_width_nodename = $width;
+            } 
+
+        } elsif( $active_section eq 'LINKS' ) {
+            #
+            # Sample input:
+            #
+            #   START_LINKS
+            #   NodeGuid1,PortNum1,NodeGuid2,PortNum2
+            #   0x0002c903001a2560,1,0x0002c90300ab7620,12      <--| In this portion of the sample, we're seeing
+            #   0x0002c903001a1410,1,0x0002c90300ab7620,13      <--| nodeGuids and port numbers for HCAs in computers on the left,
+            #   0x0002c903001a1390,1,0x0002c90300ab7620,14      <--| with nodeGuids and ports for line or spine cards in a switch.
+            #
+            #   0x0002c90300ab7200,19,0x0002c90300abf650,11     <--| In this portion, we're seeing switch to switch links.  Specifically,     
+            #   0x0002c90300ab7200,21,0x0002c90300abf670,11     <--| spine cards on one side (the right) and line
+            #   0x0002c90300ab7200,22,0x0002c90300a98c40,11     <--| cards (leaf modules) on the other.  The spine cards and leaf modules
+            #   0x0002c90300ab7200,23,0x0002c90300a98c20,11     <--| still have "ports", even though you can't see them externally -- they're
+            #   0x0002c90300ab7200,24,0x0002c90300a98c30,11     <--| just facing in towards the chassis.  And, instead of QSFP connecters,
+            #   0x0002c90300ab7200,25,0x0002c90300a98c60,11     <--| the ports are simply contact points pressed against copper traces on the
+            #   0x0002c90300ab7200,26,0x0002c90300abf2b0,11     <--| backplane of the chassis. -BEF-
+            #   0x0002c90300ab7200,27,0x0002c90300abf240,11     <--|
+            #   0x0002c90300ab7200,28,0x0002c90300abf320,11     <--|
+            #   0x0002c90300ab7200,29,0x0002c90300abf2a0,11
+            #   0x0002c90300ab7200,30,0x0002c90300a98ad0,11
+            #   0x0002c90300ab7200,31,0x0002c90300a98a70,11
+            #   0x0002c90300ab7200,32,0x0002c90300abf450,11
+            #   0x0002c90300ab7200,33,0x0002c90300abf490,11
+            #   0x0002c90300ab7200,34,0x0002c90300abf310,11
+            #   0x0002c90300ab7200,35,0x0002c90300a98c50,11
+            #   0x0002c90300ab7200,36,0x0002c90300abf290,11
+            #   0x0002c90300ab7740,19,0x0002c90300abf650,12
+            #   0x0002c90300ab7740,21,0x0002c90300abf670,12
+            #   0x0002c90300ab7740,22,0x0002c90300a98c40,12
+            #   0x0002c90300ab7740,23,0x0002c90300a98c20,12
+            #   0x0002c90300ab7740,24,0x0002c90300a98c30,12
+            #   0x0002c90300ab7740,25,0x0002c90300a98c60,12
+            #   0x0002c90300ab7740,26,0x0002c90300abf2b0,12
+            #   0x0002c90300ab7740,27,0x0002c90300abf240,12
+            #   0x0002c90300ab7740,28,0x0002c90300abf320,12
+            #   0x0002c90300ab7740,29,0x0002c90300abf2a0,12
+            #   0x0002c90300ab7740,30,0x0002c90300a98ad0,12
+            #   0x0002c90300ab7740,31,0x0002c90300a98a70,12
+            #   0x0002c90300ab7740,32,0x0002c90300abf450,12
+            #   0x0002c90300ab7740,33,0x0002c90300abf490,12
+            #   0x0002c90300ab7740,34,0x0002c90300abf310,12
+            #   0x0002c90300ab7740,35,0x0002c90300a98c50,12
+            #   0x0002c90300ab7740,36,0x0002c90300abf290,12
+            #
+            next if(m/^NodeGuid1,PortNum1/); # Skip header
+
+            #
+            # The quotes kinda make it hard to read in the output and are unnecessary at this point.  # This could change, if
+            # commas are added to any quoted fields, at which point we'll just have to use a CSV file module.
+            #
+            s/"//g;     
+
+            my ($node1_guid, $node1_guid_port, $node2_guid, $node2_guid_port) = split(/,/);
+            $guid_n_port_p2p{"$node1_guid,$node1_guid_port"} = "$node2_guid,$node2_guid_port";
+
+        } elsif( $active_section eq 'SM_INFO' ) {
+            #
+            # Sample input:
+            #
+            #   NodeGUID,PortGUID,PortNumber,GUID,Sm_Key,ActCount,SmState,Priority
+            #   0x0002c90300a98c70,0x0002c90300a98c70,0,0x0002c90300a98c70,0x0000000000000000,197149,2,13
+            #   0x0002c90300abf650,0x0002c90300abf650,0,0x0002c90300abf650,0x0000000000000000,4191175,3,14
+            #
+            next if(m/^NodeGUID,PortGUID/); # Skip header
+
+            my @list = split(/,/);
+
+            my $node_guid = $list[0];
+            my $priority  = $list[7];
+
+            $sm_priorities_by_guid{$node_guid} = $priority;
+        }
+    }
+}
+
+
+if( -e $ibdiagnet_cables ) {
+
+    my $guid;
+    my %cable_description;
+
+    $file = $ibdiagnet_cables;
+    open(FILE,"<$file") or die("couldn't open $file for reading");
+    while(<FILE>) {
+    
+        chomp;
+    
+        #
+        # Sample input:
+        #
+        # -------------------------------------------------------
+        # Port=1 Lid=0x01f9 GUID=0x500507005b009dc5 Port Name=n0503/U1/P1
+        # -------------------------------------------------------
+        # Vendor: Mellanox
+        # OUI: 0x2c9
+        # PN: 00W0077
+        # SN: 4007734L06J
+        # Rev: A1
+        # Length: 10 m
+        # Type: 850 nm VCSEL
+        # SupportedSpeed: SDR/DDR/QDR/FDR
+        # 
+        # 
+        # -------------------------------------------------------
+        # Port=17 Lid=0x0010 GUID=0x0002c90300ab6b40 Port
+        # Name=sx6536-0701-mgt2/L18/U1/P17
+        # -------------------------------------------------------
+        # Vendor: Mellanox
+        # OUI: 0x2c9
+        # PN: 00W0077
+        # SN: 4007734L079
+        # Rev: A1
+        # Length: 10 m
+        # Type: 850 nm VCSEL
+        # SupportedSpeed: SDR/DDR/QDR/FDR
+        #
+
+        if(m|^Port=.*GUID=(\S+)\s+Port|) {
+            $guid = $1;
+
+        } elsif( m/^(Vendor|OUI|PN|SN|Rev|Length|Type|SupportedSpeed):\s+(.*)/ ) {
+            $cable_description{$1} = $2;
+
+        } elsif( m/^(\s+|$)/ ) {
+
+            #
+            # Ok, we've matched a blank line, meaning we've read the entire
+            # description.  Now let's process it.
+            #
+
+            #
+            # Add an entry for this cable type to the cable type DB if necessary.
+            #
+            my $PN = $cable_description{'PN'};
+            my $Rev = $cable_description{'Rev'};
+
+            if( defined $PN 
+                and defined $Rev 
+                and ! defined $cables_by_partnumber_and_rev{"$PN-$Rev"} ){
+
+                $cables_by_partnumber_and_rev{"$PN-$Rev"}  = "Vendor: $cable_description{'Vendor'}\n";
+                $cables_by_partnumber_and_rev{"$PN-$Rev"} .= "OUI: $cable_description{'OUI'}\n";
+                $cables_by_partnumber_and_rev{"$PN-$Rev"} .= "PN: $cable_description{'PN'}\n";
+                $cables_by_partnumber_and_rev{"$PN-$Rev"} .= "SN: $cable_description{'SN'}\n";
+                $cables_by_partnumber_and_rev{"$PN-$Rev"} .= "Rev: $cable_description{'Rev'}\n";
+                $cables_by_partnumber_and_rev{"$PN-$Rev"} .= "Length: $cable_description{'Length'}\n";
+                $cables_by_partnumber_and_rev{"$PN-$Rev"} .= "Type: $cable_description{'Type'}\n";
+                $cables_by_partnumber_and_rev{"$PN-$Rev"} .= "SupportedSpeed: $cable_description{'SupportedSpeed'}\n";
+
+                $PN = undef;
+                $Rev = undef;
+            }
+
+            #
+            # Associate this cable type with it's node or switch port.
+            #
+            if( defined $guid and defined $PN and defined $Rev) {
+
+                $cables_by_node_guid{$guid} = "$PN-$Rev";
+
+                $guid = undef;
+            }
+        }
+    }
+    close(FILE);
+}
+
+
+my %uplink_count_by_device_pair;
+my %uplink_count_by_device;
+
+foreach (sort keys %guid_n_port_p2p) {
+
+    my $my_guid_n_port  = $_;
+    my $his_guid_n_port = $guid_n_port_p2p{$my_guid_n_port};
+
+    my ($my_guid,  $my_port)  = split(/,/, $my_guid_n_port);
+    my ($his_guid, $his_port) = split(/,/, $his_guid_n_port);
+    
+    my $my_pad  = space_pad( $max_width_nodename - length $nodes_by_guid{$my_guid} );
+    my $his_pad = space_pad( $max_width_nodename - length $nodes_by_guid{$his_guid} );
+
+    my $my_port_pad  = space_pad( 2 - length $my_port );
+    my $his_port_pad = space_pad( 2 - length $his_port);
+
+    my $my_pure_node_name = $nodes_by_guid{$my_guid};
+    my $his_pure_node_name = $nodes_by_guid{$his_guid};
+
+    my $regex = '(/U\d+|\s+HCA-\d+)';
+    $my_pure_node_name  =~ s|$regex||;
+    $his_pure_node_name =~ s|$regex||;
+
+    my $device_pair = "$my_pure_node_name -> $his_pure_node_name"; 
+    $uplink_count_by_device_pair{$device_pair}++;
+
+    $uplink_count_by_device{$my_pure_node_name}++;
+}
+    
+if( $uplink_summary ) {
+    print "------------------------------------------------------------------------\n";
+    print "                        Uplink Summary\n";
+    print "------------------------------------------------------------------------\n";
+    foreach my $device (sort keys %uplink_count_by_device) {
+
+        my $uplink_count      = $uplink_count_by_device{$device};
+        my $line = "$device   ${uplink_count} live uplinks";
+
+        push @output, "$line\n";
+    }
+}
+
+if( $uplink_details ) {
+    print "------------------------------------------------------------------------\n";
+    print "                        Uplink Details\n";
+    print "------------------------------------------------------------------------\n";
+    foreach my $device_pair (sort keys %uplink_count_by_device_pair) {
+
+        my $uplink_count      = $uplink_count_by_device_pair{$device_pair};
+
+        my $line = "$device_pair   ${uplink_count} live uplinks";
+
+        push @output, "$line\n";
+    }
+}
+
+
+#
+#   "Node: $node_name on port $port_name has issues...\n";
+#
+print "------------------------------------------------------------------------\n";
+print "                        Point to Point Info\n";
+print "------------------------------------------------------------------------\n";
+foreach (sort keys %guid_n_port_p2p) {
+
+    my $my_guid_n_port  = $_;
+    my $his_guid_n_port = $guid_n_port_p2p{$my_guid_n_port};
+
+    my ($my_guid,  $my_port)  = split(/,/, $my_guid_n_port);
+    my ($his_guid, $his_port) = split(/,/, $his_guid_n_port);
+    
+    my $my_pad  = space_pad( $max_width_nodename - length $nodes_by_guid{$my_guid} );
+    my $his_pad = space_pad( $max_width_nodename - length $nodes_by_guid{$his_guid} );
+
+    my $my_port_pad  = space_pad( 2 - length $my_port );
+    my $his_port_pad = space_pad( 2 - length $his_port);
+
+    my $my_node_name = $nodes_by_guid{$my_guid};
+    my $his_node_name = $nodes_by_guid{$his_guid};
+
+    my $line = "$my_pad$my_node_name Port $my_port_pad$my_port  <=>  $his_pad$his_node_name Port $his_port_pad$his_port";
+
+    if(defined $cables_by_node_guid{$my_guid}) {
+        $line .= ", Cable Type: $cables_by_node_guid{$my_guid}";
+    } elsif(defined $cables_by_node_guid{$his_guid}) {
+        $line .= ", Cable Type: $cables_by_node_guid{$his_guid}";
+    }
+
+    if(defined $switch_ports_with_errors{"$his_node_name,$his_port"}) {
+        $line .= ", Errors Reported";
+    }
+
+    if(defined $p2p) {
+        push @output, "$line\n";
+
+    } elsif(defined $p2p_errors and defined $switch_ports_with_errors{"$his_node_name,$his_port"}) {
+        push @output, "$line\n";
+
+    }
+}
+
+# 
+# Print what we've got so far
+print (sort @output);
+
+
+#
+# Appendix
+#
+print "\n";
+
+foreach (sort keys %cables_by_partnumber_and_rev) {
+    
+    my ($pn, $rev) = split(/-/);
+
+    print "------------------------------------------------------------------------\n";
+    print "                    Cable Type $pn-$rev\n";
+    print "------------------------------------------------------------------------\n";
+    print qq($cables_by_partnumber_and_rev{"$pn-$rev"}\n);
+
+}
+
+
+print "------------------------------------------------------------------------\n";
+print "                        Subnet Manager Info\n";
+print "------------------------------------------------------------------------\n";
+foreach my $guid (sort keys %sm_priorities_by_guid) {
+    
+    my $sm_name = $nodes_by_guid{$guid};
+    my $sm_prio = $sm_priorities_by_guid{$guid};
+
+    my $sm_pad   = space_pad( $max_width_nodename - length $sm_name );
+    my $prio_pad = space_pad( 2 - length $sm_prio );
+
+    print "${sm_pad}$sm_name, Priority ${prio_pad}$sm_prio\n";
+}
+
+print "\n";
+
+exit;
+
+
+########################################################################
+#
+#   BEGIN Subroutines
+#
+
+sub usage {
+    my $progname = basename($0);
+print << "EOF";
+
+Usage:  $progname OPTION [OPTION...]
+
+    This program makes no changes to your InfiniBand fabric -- it simply
+    reads the log files generated by ibdiagnet the last time it was run,
+    and can display a point-to-point listing ("node name and port" to
+    "switch port") for all links.  If errors are detected on any ports,
+    they will also be indicated.
+
+    If ibdiagnet is run with the "--get_cable_info" option, then this
+    program will also report a cable type for each point to point link.
+
+    --help
+        Show this output.
+    
+    --p2p
+        Show all port to port mappings with node names.
+
+    --p2p-errors
+        Show port to port mappings with node and/or switch names ONLY for links
+        with errors.
+    
+    --uplinks-summary
+        Show a summary count of live uplinks from each node or switch.
+
+    --uplinks-details
+        Show a count of live uplinks from each node or switch by uplink switch.
+
+    --ibdiagnet_dir DIRECTORY_NAME
+        Where DIRECTORY_NAME is the name of the directory where the
+        ibdiagnet log files exist.  
+        
+        DEFAULT: /var/tmp/ibdiagnet2/
+
+
+    Example:
+
+        root\@mgt:~# test_infiniband_fabric_info --uplink-summary | grep sx6036-17
+        sx6036-1701   12 live uplinks
+        sx6036-1702   12 live uplinks
+        sx6036-1703   11 live uplinks
+
+        root\@mgt:~# test_infiniband_fabric_info -p2p | egrep '(gss1|nxt1101)'
+           gss1 HCA-1 Port  1  <=>     sx6536-0901/L01/U1 Port  1
+           gss1 HCA-1 Port  2  <=>     sx6536-0901/L10/U1 Port  1
+           gss1 HCA-3 Port  1  <=>     sx6536-0901/L11/U1 Port  1
+           gss1 HCA-3 Port  2  <=>     sx6536-0901/L12/U1 Port  1
+        nxt1101 HCA-1 Port  1  <=>         sx6036-1101/U1 Port  1
+
+          
+      by Brian Finley, <bfinley\@us.ibm.com>
+
+EOF
+
+    return 1;
+}
+
+
+#
+# Return a pad of spaces of N length.
+#
+#   my $pad = space_pad(N);
+#
+sub space_pad {
+
+    my $space_count = shift;
+
+    my $pad = "";
+    my $i = 0;
+    until($i == $space_count) {
+        $pad .= " ";
+        $i++;
+    }
+    return $pad;
+}
+
+#
+#   END Subroutines
+#
+########################################################################
