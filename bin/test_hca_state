@@ -161,12 +161,12 @@ else
 	do
 		echo $HCA
 
-    HCA_PCI_ID=$(lspci | egrep "Network controller.*Mellanox" | sed "s/ .*//")
-    PCI_SPEED=$(lspci -vvvxxx -s $HCA_PCI_ID | egrep "^70: " | perl -pi -e "s/^70: [0-9]+ [0-9]+ (\d+).*/\$1/")
+    HCA_PCI_ID=$(ls -l /sys/class/infiniband/$HCA/device | sed -e "s/.*\///")
+    PCI_SPEED=$(lspci -vv -s $HCA_PCI_ID | grep -w LnkSta | sed -e "s/,.*//" -e "s/.*:[[:space:]]Speed[[:space:]]//")
     echo -n "  PCI: "
-    if [ "$PCI_SPEED" == 83 ]; then
+    if [ "$PCI_SPEED" = "8GT/s" ]; then
         echo Gen3
-    elif [ "$PCI_SPEED" == 82 ]; then
+    elif [ "$PCI_SPEED" = "5GT/s" ]; then
         echo Gen2
     else
         echo Dunno
