@@ -1,0 +1,504 @@
+#!/usr/bin/perl -w
+
+#
+# 2012.04.12  Brian Finley <bfinley@us.ibm.com>
+# - created to generate p2p labels for UChicago install by Rochester CSC
+# 2014.01.13  Brian Finley <bfinley@us.ibm.com>
+# - updated to be more flexible
+# - handle striping of some tier2 devices across a tier1 device
+# - handle different uplink counts for each tier2 device
+# - handle nodes directly connected to tier1 device (by treating as a tier2 with very
+#   few ports)
+# 2014.01.14  Brian Finley <bfinley@us.ibm.com>
+# - updated total number of tier1 device cards
+# 2014.03.10  Brian Finley <bfinley@us.ibm.com>
+# - Added --force, --output-file, --columns
+#
+
+use strict;
+use Getopt::Long;
+use File::Basename;
+
+my $progname = basename($0);
+my $pkgname = 'infiniband_goodies';
+my $version_number = '0.4.4';
+
+my $columns = 1;
+GetOptions(
+    "help"          => \my $help,
+    "version"       => \my $version,
+    "columns=i"     =>    \$columns,
+    "output-file=s" => \my $output_file,
+    "input-file=s"  => \my $in_file,
+    "force"         => \my $force,
+    "debug"         => \my $debug,
+) or usage() and exit(1);
+
+if ( defined $help ) {
+    usage();
+    exit 0;
+}
+
+if ( ! defined $in_file ) {
+    usage();
+    print "\n  >> Try --input-file FILENAME\n\n";
+    exit 1;
+}
+
+if ( defined $version ) {
+    version();
+    exit 0;
+}
+
+my $stanza_terminator = '^(\s+|$)';
+my $comment = '^#';
+
+my %p2p_assignments;
+
+my @tier1s;
+my @tier2s;
+
+my @input;
+my $file = $in_file;
+open(FILE,"<$file") or die("Couldn't open $file for reading");
+    push @input, (<FILE>);
+close(FILE);
+push(@input, "");
+
+
+while(@input) {
+    $_ = shift @input;
+
+    # strip leading spaces
+    s/^\s+//;
+    
+    if( m/^\[tier1\]/ ) {
+        $_ = shift @input;
+        until( m/$stanza_terminator/ ) {
+            if(! m/^#/) {
+                chomp;
+                push @tier1s, $_;
+            }
+            $_ = shift @input;
+        }
+    }
+
+    if( m/^\[tier2\]/ ) {
+        $_ = shift @input;
+        until( m/$stanza_terminator/ ) {
+            if(! m/^#/) {
+                chomp;
+                push @tier2s, $_;
+            }
+            $_ = shift @input;
+        }
+    }
+}
+
+
+my %tier1_ports;
+my $total_tier1_ports = 0;
+foreach (@tier1s) {
+
+    print ">> tier1 input $_\n" if(defined $debug);
+
+    my ($name, $downlink_ports, @used_ports) = split(/\s+/);
+    print ">> name $name, downlink_ports $downlink_ports\n" if(defined $debug);
+
+    my %used_ports;
+    foreach my $port ( @used_ports ) {
+        print ">> used_port $port\n" if(defined $debug);
+        $used_ports{$port} = 1;
+    }
+
+    $total_tier1_ports += $downlink_ports;
+
+    my $port = 0;
+    until ($port == $downlink_ports) {
+
+        $port++;
+
+        # 
+        # Simply skip over already used ports so they're not available for
+        # mapping.
+        #
+        next if( defined $used_ports{$port} );
+
+        # Remember name of switch for striping purposes if needed
+        my $full_port_name = "$name/$port";
+        $tier1_ports{$full_port_name} = $name;
+        print ">>> tier1 port $full_port_name\n" if(defined $debug);
+    }
+}
+
+my @tier2_ports;
+my @tier2_ports_to_be_striped;
+my $total_tier2_uplinks;
+foreach (@tier2s) {
+
+    print ">> tier2 input $_\n" if(defined $debug);
+
+    my ($name, $total_ports, $uplink_ports, $striped) = split(/\s+/);
+
+    $total_tier2_uplinks += $uplink_ports;
+
+    #
+    # Starting port should be $uplink_ports less than $total_ports so
+    # that we start at the top of the switch (by convention) -BEF-
+    #
+    my $port = $total_ports - $uplink_ports;
+    until ($port == $total_ports) {
+
+        $port++;
+
+        my $full_port_name = "$name/$port";
+        print ">>> tier2 port $full_port_name\n" if(defined $debug);
+
+        if(defined $striped) {
+            push @tier2_ports_to_be_striped, $full_port_name;
+        } else {
+            push @tier2_ports, $full_port_name;
+        }
+    }
+}
+
+my $tier1_count = scalar(@tier1s);
+my $tier2_count = scalar(@tier2s);
+
+my $switch_name;
+my $last_switch_name = "";
+
+#
+# Do stripey tier2 devices first
+#
+print qq(> begin "Do stripey tier2 devices first"\n) if(defined $debug);
+while (@tier2_ports_to_be_striped) {
+
+    foreach my $tier1_port (reverse schwartzian_sort (keys %tier1_ports) ) {
+    
+        #print qq(>> considering tier1_port $tier1_port\n) if(defined $debug);
+        $switch_name = $tier1_ports{$tier1_port};
+    
+        #
+        # Don't want to use a port on the same tier1 switch twice for this
+        # tier2 device.
+        #
+        next if($switch_name eq $last_switch_name);
+    
+        #
+        # Skip this entry if it's already defined
+        #
+        next if(defined $p2p_assignments{$tier1_port});
+
+        #
+        # End loop if we've processed all the tier2 ports
+        #
+        last if( scalar(@tier2_ports_to_be_striped) == 0 );
+    
+        $_ = shift @tier2_ports_to_be_striped;
+    
+        my ($tier2_port, $stripe) = split(/\s+/, $_);
+    
+        $p2p_assignments{$tier1_port} = $tier2_port;
+        print qq(>> assigning tier1_port $tier1_port to tier2_port $tier2_port\n) if(defined $debug);
+    
+        # Remember which switch was last used
+        $last_switch_name = $switch_name;
+    }
+}
+
+#
+# Do non-stripey tier2 devices now (the default)
+#
+print qq(> begin "Do non-stripey tier2 devices now"\n) if(defined $debug);
+foreach my $tier1_port (reverse schwartzian_sort (keys %tier1_ports) ) {
+
+    #print qq(>> considering tier1_port $tier1_port\n) if(defined $debug);
+
+    #
+    # Skip this entry if it's already defined
+    #
+    next if(defined $p2p_assignments{$tier1_port});
+
+    #
+    # End loop if we've processed all the tier2 ports
+    #
+    last if(scalar(@tier2_ports) == 0 );
+
+    my $tier2_port = shift @tier2_ports;
+    $p2p_assignments{$tier1_port} = $tier2_port;
+    print qq(>> assigning tier1_port $tier1_port to tier2_port $tier2_port\n) if(defined $debug);
+}
+
+print qq(> begin "Create output"\n) if(defined $debug);
+#
+#   Create output
+#
+my $column = 1;
+my @output;
+foreach my $tier1_port (reverse schwartzian_sort (keys %p2p_assignments) ) {
+
+    print qq(>> processing tier1_port "$tier1_port"\n) if(defined $debug);
+
+    my $tier2_port = $p2p_assignments{$tier1_port};
+    push @output, "$tier1_port $tier2_port";
+    print qq(>> push \@output, "$tier1_port $tier2_port"\n) if(defined $debug);
+
+    if($column != $columns) {
+
+        # Add the csv separator and track the column count
+        push @output, ",";
+        $column++;
+        print qq(>> Add the csv separator and track the column count\n) if(defined $debug);
+
+    } else {
+
+        push @output, "\n";
+        print qq(>> add carriage return to output\n) if(defined $debug);
+
+        # Reset the column count
+        $column = 1;
+    }
+}
+
+# Add a final carriage return
+push @output, "\n";
+
+#
+# Commentary
+#
+print "\n";
+print "Using $total_tier1_ports available ports across $tier1_count tier1 switches\n";
+print "and $total_tier2_uplinks uplink ports across $tier2_count tier2 devices\n";
+print "\n";
+
+#
+#   Time to print the output
+#
+$file = $output_file;
+if(defined $file) {
+
+    if( defined $force or ! -e "$file") {
+
+        open(FILE,">$file") or die("Couldn't open $file for writing");
+        foreach(@output) {
+            print FILE $_;
+        }
+        close(FILE);
+    
+        print "Your p2p label maker input can be found here: $file\n";
+        print "\n";
+
+    } else {
+
+        print "\n";
+        print "$file already exists.\n";
+        print "\n";
+        print " --> Try a different file or use --force\n";
+        print "\n";
+
+    } 
+
+} else {
+    foreach(@output) {
+        print $_;
+    }
+}
+
+#my $used_tier1_ports = keys %p2p_assignments;
+#print "\n# Tier2 devices consumed $used_tier1_ports of $total_tier1_ports available tier1 ports.\n" if(defined $debug);
+
+exit 0;
+
+
+
+########################################################################
+#
+#   BEGIN Subroutines
+#
+sub version {
+    print qq(\n);
+    print qq($progname v$version_number\n);
+    print qq(\n);
+    print qq(    Part of the "$pkgname" package\n);
+    print qq(\n);
+
+    return 1;
+}
+
+sub usage {
+version();
+print << "EOF";
+Usage:  $progname --input-file FILE [OPTION...]
+
+    Options can be abbreviated to minimum uniqueness.  For example, you could
+    use "-h" or "--h" instead of "--help".
+
+    --help
+
+    --version
+
+    --input-file FILE
+
+        Where FILE contains tier1 and tier2 device entries in the
+        following format.  Hash marks are fine within a section, but an
+        empty line indicates the end of a section.
+
+            [tier1]
+            #
+            #   Format:
+            #   UNIQUE_IDENTIFIER TOTAL_PORTS SPACE_DELIMITED_LIST_OF_USED_PORTS
+            #
+            H19/L1 18 1 2 3 4 5 6 7 8
+            H19/L2 18
+            H19/L3 18
+
+            
+            [tier2]
+            #
+            #   Format:
+            #   UNIQUE_IDENTIFIER TOTAL_PORTS UPLINK_PORTS [STRIPED]
+            #
+            # Node with 2x dual-port adapters connected to tier1
+            #   Resulting ports that get assigned in output:
+            #       K24/U13/H1/1
+            #       K24/U13/H1/2
+            #       K24/U13/H2/1
+            #       K24/U13/H2/2
+            #
+            K24/U13/H1 2 2 striped
+            K24/U13/H2 2 2 striped
+            #
+            #
+            # Node with only port 1 of a dual-port adapter connected to tier1 
+            #   Resulting ports that get assigned in output:
+            #       K24/U13/H1/1
+            #
+            K24/U13/H1 1 1
+            #
+            #
+            # Node with only port 2 of a dual-port adapter connected to tier1
+            #   Resulting ports that get assigned in output:
+            #       K24/U13/H1/2
+            #
+            K24/U13/H1 2 1
+            #
+            #
+            # 36port Leaf Switches in an iDataPlex rack
+            #   Resulting ports that get assigned in output:
+            #       K22/B/U8/25 - K22/B/U8/36
+            #
+            K22/B/U8 36 12
+            K22/D/U8 36 12
+            K22/D/U6 36 12
+            #
+            #
+            # 36port Leaf Switch in standard rack
+            #   Resulting ports that get assigned in output:
+            #       K17/U40/19 - K17/U40/36
+            #
+            K17/U40 36 18
+
+
+        Additional FILE format details:
+
+            The optional argument "striped" indicates striping across
+            the tier1 devices.
+
+
+    --output-file FILE
+
+        Resultant p2p information will be written to this file.  It is
+        recommended that you have .csv at the end of the file name for
+        ease of use with your spreadsheet or label maker software.
+
+        Default: written to standard output (STDOUT)
+
+
+    --columns NN
+
+        Number of columns to use in output.
+
+        Default: 1
+
+
+    Support: 
+    
+        This software is provided as-is, with no express or implied
+        support.  However, the author would love to receive your
+        patches.  Please contact Brian E. Finley <bfinley\@us.ibm.com>
+        with patches and/or suggestions.
+
+
+EOF
+    return 1;
+}
+
+
+sub which {
+
+    my $file = shift;
+    my $path = shift;
+    
+    if( ! defined($path) ) { 
+        $path = $ENV{PATH}; 
+    }
+    
+    foreach my $dir (split(/:/,$path)) {
+      if(-x "$dir/$file") {
+        return "$dir/$file";
+      }
+    }
+    return undef;
+}
+
+sub get_tmp_file {
+
+    my $file;
+
+    my $template_base = '/tmp/multipath.conf';
+    my $cmd = qq(mktemp $template_base.XXX);
+
+    open(INPUT,"$cmd|") or die("Couldn't run $cmd for input");
+    while(<INPUT>) {
+        if( m#^($template_base.*)# ) {
+            $file = $1;
+        }
+    }
+    close(INPUT);
+
+    return $file;
+}
+
+sub user_is_root {
+
+    if($< == 0) {
+        return 1;
+    }
+    return undef;
+}
+
+#
+# Schartzian Transformation Sort
+#
+#   Sorts the following as normally desired:
+#
+#       number1
+#       number2
+#       number10
+#       number20
+#       number100
+#
+sub schwartzian_sort {
+    return map { $_->[0] }
+    sort { $b->[1] <=> $a->[1]
+               ||
+           $a->[2] cmp $b->[2]
+    } map { [$_, m/(\d+)$/, uc($_)] } @_;
+}
+
+
+#
+#   END Subroutines
+#
+########################################################################
