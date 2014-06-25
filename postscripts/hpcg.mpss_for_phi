@@ -1,0 +1,39 @@
+#
+#   This postscript is intended to be run on Intel Phi nodes, and
+#   assigns IP addresses to the Phi devices that are directly accessible
+#   from the host node's main network.
+#
+#   It is not site generic yet, and should be customized for your site.
+#
+
+#
+#   2013.05.10 Jarrod Johnson
+#   - process documented
+#
+#   2013.05.10 Brian Finley
+#   - created postscript
+#
+
+
+logger -t xcat "$0: BEGIN"
+
+BRIDGENAME="PhiBridge"
+
+baseip=`ip -4 addr show|grep 10.18|awk '{print $2}'|sed -e 's/\/16//'`
+tail=${baseip##*.}
+head=${baseip%.*}
+firstip=$head.1$tail
+secondip=$head.2$tail
+
+xHRM bridgeprereq $BRIDGENAME
+
+micctrl --initdefaults
+micctrl --addbridge=$BRIDGENAME  --type=external --ip=$baseip --netbits=16
+micctrl --network=static --bridge=$BRIDGENAME --ip=$firstip mic0 #--modhosts=no mic0
+micctrl --network=static --bridge=$BRIDGENAME --ip=$firstip mic1 #--modhosts=no mic1
+
+chkconfig mpss --add
+service mpss start
+
+logger -t xcat "$0: END"
+
