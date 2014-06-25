@@ -1,0 +1,30 @@
+#!/bin/bash
+
+#
+# 2012.08.19 Brian Elliott Finley <bfinley@us.ibm.com>
+# - created
+# 2014.06.25 Brian Elliott Finley <bfinley@us.ibm.com>
+#	- auto-detect file systems on management node by default
+#
+
+NR=$1
+
+if [ -z $NR ]; then
+    echo "$0 NODERANGE | xcoll"
+    echo "  or just"
+    echo "$0 NODERANGE"
+    exit 1
+fi
+
+MY_FILESYSTEMS=$(/usr/lpp/mmfs/bin/mmlsfs all -T | egrep 'File system attributes for' | awk '{print $NF}' | sed 's/:$//')
+#MY_FILESYSTEMS="fs_8m"
+
+xdsh $NR -t7 " 
+echo GPFS:
+for fs in "$MY_FILESYSTEMS"
+do
+  /bin/df | grep -q \$fs && echo \$fs: OK || echo \$fs: FAIL
+done
+/usr/lpp/mmfs/bin/mmfsadm test verbs status | grep -qw started && echo verbsRDMA:  OK || echo verbsRDMA: FAIL
+" 2>&1 | perl -pi -e 's/ssh: connect to host \S+/ssh: connect to host/'
+
