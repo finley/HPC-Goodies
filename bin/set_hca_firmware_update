@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#
+# 2012.08.19 Brian Elliott Finley <bfinley@us.ibm.com>
+#   - created
+#
+
+NR=$1
+
+if [ -z $NR ]; then
+    echo "$0 NODERANGE"
+    exit 1
+fi
+
+DIR=$(dirname $0)
+xdcp $NR $DIR/HCA_Firmware/*.sh $DIR/HCA_Firmware/*.bin /tmp/
+xdsh $NR 'cd /tmp ; ./MellanoxFWinstall.sh'

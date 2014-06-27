@@ -1,0 +1,334 @@
+#!/usr/bin/perl -w
+
+#
+#   2014.06.26 Brian Elliott Finley <bfinley@us.ibm.com> & Mark Atkins <atkinsm@us.ibm.com>
+#   - created
+#   - credit also goes to Jarrod Johnson for his initial creation of a similar
+#     tool that lent credence to this concept
+#
+
+use Getopt::Long;
+use File::Basename;
+
+my $version = '0.1';
+
+GetOptions(
+
+    "help"              => \my $help,
+    "client_nodes=s"    => \my $client_nodes,
+    "target_nodes=s"    => \my $target_nodes,
+    "debug"             => \my $debug,
+    "verbose"           => \my $verbose,
+
+) or usage() and exit(1);
+
+if ( defined $help ) {
+    usage();
+    exit 0;
+}
+
+
+my $cmd;
+
+print "Gathering node guids.\n";
+my %client_node_guids;
+$cmd = "get_node_guids $client_nodes";
+open(INPUT,"$cmd|") or die;
+while(<INPUT>) {
+	m/^(\S+)\s+(\S.*)/;
+	my $guid = $1;
+	my $description = $2;
+	$client_node_guids{$guid} = $description;
+}
+close(INPUT);
+
+my %target_node_guids;
+$cmd = "get_node_guids $target_nodes";
+open(INPUT,"$cmd|") or die;
+while(<INPUT>) {
+	m/^(\S+)\s+(\S.*)/;
+	my $guid = $1;
+	my $description = $2;
+	$target_node_guids{$guid} = $description;
+}
+close(INPUT);
+
+my $port_pair_count = scalar(keys %target_node_guids) * scalar(keys %client_node_guids);
+
+#
+# Client to target
+#
+print "Gathering route info (one dot for each of $port_pair_count port pairs)\n";
+my %client_to_target_hops_by_port_pair;
+my %client_to_target_overlapping_hops;
+my $dot_count = 1;
+my $port_pairs_tested;
+foreach my $guid (keys %client_node_guids) {
+
+	my $client_guid = $guid;
+	foreach my $target_guid (keys %target_node_guids) {
+
+		my $cmd;
+		my $from;
+		my $to;
+        my $hops;
+        my @input;
+
+		# From here to there
+        #print " $dot_count port pairs\n";
+        if($dot_count eq 50) {
+            $dot_count = 1;
+            $port_pairs_tested += 50;
+            print " $port_pairs_tested\n";
+        } else {
+            print ".";
+            $dot_count++;
+        }
+
+		$cmd = "ibtracert -G $client_guid $target_guid";
+		open(INPUT,"$cmd|") or die;
+        push @input, (<INPUT>);
+        close(INPUT);
+
+        my $idx = 0;
+		until( $idx gt $#input ) {
+
+            $_ = $input[$idx];
+
+            #
+            # From ca {0x500507005b00ec54} portnum 1 lid 1-1 "nxt1101 HCA-1"
+            # [1] -> switch port {0xf452140300088040}[1] lid 99-99 "MF0;sx6036-1101:SX6036/U1"
+            # [31] -> switch port {0x0002c90300870160}[10] lid 10-10 "MF0;sx6536-0901:SX6536/L13/U1"
+            # [25] -> switch port {0x0002c903007ef900}[13] lid 3-3 "MF0;sx6536-0901:SX6536/S07/U1"
+            # [11] -> switch port {0x0002c90300870580}[25] lid 15-15 "MF0;sx6536-0901:SX6536/L11/U1"
+            # [1] -> ca port {0x0002c90300b769d1}[1] lid 38-38 "gss1 HCA-3"
+            # To ca {0x0002c90300b769d0} portnum 1 lid 38-38 "gss1 HCA-3"
+            #
+			if(m/^From .*portnum (\d+) lid \d+-\d+ "(.*)"/) {
+				$from = "$2/P$1";
+				$from =~ s|\s+|/|g;
+			}
+			elsif(m/^\[\d+\] -> switch port \S+\[\d+\] lid \d+-\d+ "(.*)"/) {
+                my $hop = "$1";
+                $hop =~ s/\s+/_/g;
+                $hop =~ s/^MF0;//;
+                $hop =~ s|:|/|;
+
+                $_ = $input[$idx + 1];
+                if(m/^\[\d+\] -> ca port/) {
+                    # 
+                    # Our current port is the one to which the node is directly
+                    # connected.  Skip it.
+                    #
+                } elsif(m/^\[(\d+)\]/) {
+
+                    $hop .= "/P$1";
+
+				    $hops .= "$hop ";
+                    $client_to_target_overlapping_hops{$hop}++;
+                }
+
+			}
+			elsif(m/^To .*portnum (\d+) lid \d+-\d+ "(.*)"/) {
+				$to = "$2/P$1";
+				$to =~ s|\s+|/|g;
+			}
+            $idx++;
+		}
+
+        my $port_pair = "From $from to $to";
+        $client_to_target_hops_by_port_pair{$port_pair} = $hops;
+
+		print "$port_pair: $hops\n" if($debug);
+
+		## From there to here
+		#$cmd = "ibtracert -G $target_guid $client_guid";
+        #XXX fill me in...
+	}
+}
+print "\n";
+
+my %max_overlap_by_client;
+foreach my $port_pair (sort keys %client_to_target_hops_by_port_pair) {
+
+    my @overlap_counts;
+    my @hops = split(/\s+/, $client_to_target_hops_by_port_pair{$port_pair});
+    foreach my $hop (@hops) {
+        push @overlap_counts, $client_to_target_overlapping_hops{$hop};
+    }
+
+    my $counts;
+    foreach my $count (reverse sort numerically @overlap_counts) {
+        $counts .= "$count "
+    }
+    print "$port_pair: $counts\n";
+
+    my ($from, $client) = split(/\s+/, $port_pair);
+    my ($max_overlap) = split(/\s+/, $counts);
+    if($max_overlap_by_client{$client}) {
+        $max_overlap_by_client{$client} = $max_overlap if($max_overlap > $max_overlap_by_client{$client})
+    } else {
+        $max_overlap_by_client{$client} = $max_overlap;
+    }
+
+    if($verbose) {
+        # Detail overlap count by port
+        my @hops = split(/\s+/, $client_to_target_hops_by_port_pair{$port_pair});
+        foreach my $hop (@hops) {
+            print "  $client_to_target_overlapping_hops{$hop}  $hop\n";
+        }
+        print "\n";
+    }
+}
+
+print "\n";
+print "Max overlap entry by client:\n";
+print "------------------------------------------------------------------------\n";
+foreach my $client (sort keys %max_overlap_by_client) {
+    print "$client $max_overlap_by_client{$client}\n";
+}
+print "\n";
+
+if($debug) {
+    print "Hop_Name                   Overlap_Count\n";
+    foreach my $hop (keys %client_to_target_overlapping_hops) {
+        print "$hop $client_to_target_overlapping_hops{$hop}\n";
+    }
+}
+
+
+
+# From ca {0x500507005b00ec54} portnum 1 lid 1-1 "nxt1101 HCA-1"
+#   [1] -> switch port {0xf452140300088040}[1] lid 99-99 "MF0;sx6036-1101:SX6036/U1"
+#   [25] -> switch port {0x0002c9030086ff80}[4] lid 16-16 "MF0;sx6536-0901:SX6536/L12/U1"
+#   [1] -> ca port {0x0002c90300b769d2}[2] lid 42-42 "gss1 HCA-3"
+# To ca {0x0002c90300b769d0} portnum 2 lid 42-42 "gss1 HCA-3"
+# 
+# From nxt1101/HCA-1/P1 to gss1/HCA-3/P2:  sx6036-1101:SX6036/U1 sx6536-0901:SX6536/L12/U1
+# From nxt1101/HCA-1/P1 sx6036-1101:SX6036/U1 sx6536-0901:SX6536/L12/U1 gss1/HCA-3/P2
+# 
+# From clients to tagets (write):
+# --------------------------------------
+# 
+# From nxt1101/HCA-1/P1 to gss1/HCA-3/P2:  
+# 	2x sx6036-1101:SX6036/U1 
+# 	34x sx6536-0901:SX6536/L12/U1
+# 	
+#	$pair sx6536-0901:SX6536/L12/U1 sx6036-1101:SX6036/U1
+# 
+# From targets to clients (read):
+# --------------------------------------
+# 
+# From gss1/HCA-3/P2 to nxt1101/HCA-1/P1:
+# 	2x sx6036-1101:SX6036/U1 
+# 	12x sx6536-0901:SX6536/L12/U1
+# 
+# 
+# Client ranking by percentage of potential bandwidth available
+# (tie breakers by other contentention)
+# -------------------------------------------------------------
+# Client name: 
+# 	nxt1101/HCA-1/P1	100/34 = ranking (sort)
+# 	
+# 
+# 	
+# 
+# 
+# From ca {0x0002c90300b769d0} portnum 2 lid 42-42 "gss1 HCA-3"
+# [2] -> switch port {0x0002c9030086ff80}[1] lid 16-16 "MF0;sx6536-0901:SX6536/L12/U1"
+# [4] -> switch port {0xf452140300088040}[25] lid 99-99 "MF0;sx6036-1101:SX6036/U1"
+# [1] -> ca port {0x500507005b00ec55}[1] lid 1-1 "nxt1101 HCA-1"
+# To ca {0x500507005b00ec54} portnum 1 lid 1-1 "nxt1101 HCA-1"
+# 
+# From ca {0x500507005b00ec54} portnum 1 lid 1-1 "nxt1101 HCA-1"
+# [1] -> switch port {0xf452140300088040}[1] lid 99-99 "MF0;sx6036-1101:SX6036/U1"
+# [31] -> switch port {0x0002c90300870160}[10] lid 10-10 "MF0;sx6536-0901:SX6536/L13/U1"
+# [25] -> switch port {0x0002c903007ef900}[13] lid 3-3 "MF0;sx6536-0901:SX6536/S07/U1"
+# [11] -> switch port {0x0002c90300870580}[25] lid 15-15 "MF0;sx6536-0901:SX6536/L11/U1"
+# [1] -> ca port {0x0002c90300b769d1}[1] lid 38-38 "gss1 HCA-3"
+# To ca {0x0002c90300b769d0} portnum 1 lid 38-38 "gss1 HCA-3"
+
+
+
+#foreach my $guid (keys %client_node_guids) {
+#	print "$client_node_guids{$guid}: -> $guid\n";
+#}
+#
+#foreach my $guid (keys %target_node_guids) {
+#	print "$target_node_guids{$guid}: -> $guid\n";
+#}
+
+exit;
+
+
+
+########################################################################
+#
+#   BEGIN Subroutines
+#
+
+sub usage {
+    my $progname = basename($0);
+print << "EOF";
+
+Usage:  $progname OPTION [OPTION...]
+
+    This program makes no changes to your InfiniBand fabric -- it simply
+
+    --help
+        Show this output.
+    
+    --client_nodes NODERANGE
+
+    --target_nodes NODERANGE
+
+    --verbose
+        Provide additional output information.
+
+    --debug
+        Provide debug level output information.
+        
+          
+      by Brian Finley <bfinley\@us.ibm.com> 
+       & Mark Atkins <atkinsm\@us.ibm.com>
+
+EOF
+
+    return 1;
+}
+
+
+#
+# Return a pad of spaces of N length.
+#
+#   my $pad = space_pad(N);
+#
+sub space_pad {
+
+    my $space_count = shift;
+
+    my $pad = "";
+    my $i = 0;
+    until($i == $space_count) {
+        $pad .= " ";
+        $i++;
+    }
+    return $pad;
+}
+
+# Description:
+# Modify a sort so that 10 comes after 2.  
+# Standard sort: (sort $numbers);               # 1,10,2,3,4,5,6,7,8,9
+# Numerically:   (sort numerically $numbers);   # 1,2,3,4,5,6,7,8,9,10
+#
+# Usage:
+# foreach my $line (sort numerically (keys ( %{hash} )))
+#
+sub numerically {
+    $a <=> $b;
+}
+
+#
+#   END Subroutines
+#
+########################################################################

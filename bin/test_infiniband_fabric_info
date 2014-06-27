@@ -33,6 +33,7 @@ GetOptions(
     "help"                              => \my $help,
     "p2p"                               => \my $p2p,
     "p2p-errors"                        => \my $p2p_errors,
+    "run-ibdiagnet"                     => \my $run_ibdiagnet,
     "uplink-summary|uplinks-summary"    => \my $uplink_summary,
     "uplink-details|uplinks-details"    => \my $uplink_details,
     "ibdiagnet_dir=s"                   => \my $ibdiagnet_dir,
@@ -72,6 +73,12 @@ if ( ! -e $ibdiagnet_csv ) {
     print qq(  $ibdiagnet_csv\n\n);
     exit 1;
 
+}
+
+
+if( defined $run_ibdiagnet ) {
+    my $cmd = "ibdiagnet --get_cable_info --option-to-specify-dir $ibdiagnet_dir";
+    !system($cmd) or die("Couldn't run $cmd");
 }
 
 
@@ -545,6 +552,11 @@ Usage:  $progname OPTION [OPTION...]
 
     --uplinks-details
         Show a count of live uplinks from each node or switch by uplink switch.
+
+    --refresh
+        This tool operates on data already collected by "ibdiagnet".
+        This option runs ibdiagnet to refresh the collected data prior
+        to reporting on it.
 
     --ibdiagnet_dir DIRECTORY_NAME
         Where DIRECTORY_NAME is the name of the directory where the
