@@ -3,15 +3,12 @@
 #
 #   2013.10.17 Brian Elliott Finley <bfinley@us.ibm.com>
 #   - created
+#   2014.06.30 Francis Dang <francis@tamu.edu>
+#   - tweaked output of cables hash to handle part numbers with dashes
 #
 
 #
 # TODO
-#
-#   - add --run-ibdiagnet option
-#       - execute: $ibdiagnet_cmd
-#         "ibdiagnet --llr sw --symbol_err -P all=1 -ls 14 -lw 4x -pc --get_cable_info --pm_pause_time 600"
-#         "ibdiagnet --llr sw --symbol_err -P all=1 -lw 4x -pc --get_cable_info --pm_pause_time 600"
 #
 #   - add --tarball option
 #       - create a datestamped tarball as output that includes all of
@@ -77,7 +74,7 @@ if ( ! -e $ibdiagnet_csv ) {
 
 
 if( defined $run_ibdiagnet ) {
-    my $cmd = "ibdiagnet --get_cable_info --option-to-specify-dir $ibdiagnet_dir";
+    my $cmd = "ibdiagnet --get_cable_info --output_path $ibdiagnet_dir";
     !system($cmd) or die("Couldn't run $cmd");
 }
 
@@ -187,6 +184,7 @@ while(<FILE>) {
             # commas are added to any quoted fields, at which point we'll just have to use a CSV file module.
             #
             $node_name =~ s/"//g;     
+            $node_name =~ s|\s+|/|g;     
 
             #
             # Also strip off the "MFO" bit that prefixes switch names.  Einas -- What does that stand for?
@@ -388,9 +386,6 @@ foreach (sort keys %guid_n_port_p2p) {
     my $my_pad  = space_pad( $max_width_nodename - length $nodes_by_guid{$my_guid} );
     my $his_pad = space_pad( $max_width_nodename - length $nodes_by_guid{$his_guid} );
 
-    my $my_port_pad  = space_pad( 2 - length $my_port );
-    my $his_port_pad = space_pad( 2 - length $his_port);
-
     my $my_pure_node_name = $nodes_by_guid{$my_guid};
     my $his_pure_node_name = $nodes_by_guid{$his_guid};
 
@@ -449,13 +444,10 @@ foreach (sort keys %guid_n_port_p2p) {
     my $my_pad  = space_pad( $max_width_nodename - length $nodes_by_guid{$my_guid} );
     my $his_pad = space_pad( $max_width_nodename - length $nodes_by_guid{$his_guid} );
 
-    my $my_port_pad  = space_pad( 2 - length $my_port );
-    my $his_port_pad = space_pad( 2 - length $his_port);
-
     my $my_node_name = $nodes_by_guid{$my_guid};
     my $his_node_name = $nodes_by_guid{$his_guid};
 
-    my $line = "$my_pad$my_node_name Port $my_port_pad$my_port  <=>  $his_pad$his_node_name Port $his_port_pad$his_port";
+    my $line = "$my_pad$my_node_name/P/$my_port  <=>  $his_pad$his_node_name/P/$his_port";
 
     if(defined $cables_by_node_guid{$my_guid}) {
         $line .= ", Cable Type: $cables_by_node_guid{$my_guid}";
@@ -488,13 +480,16 @@ print "\n";
 
 foreach (sort keys %cables_by_partnumber_and_rev) {
     
-    my ($pn, $rev) = split(/-/);
+    my ($pn, $rev) = ($_ =~ /(.*)-(..)$/);
 
     print "------------------------------------------------------------------------\n";
     print "                    Cable Type $pn-$rev\n";
     print "------------------------------------------------------------------------\n";
-    print qq($cables_by_partnumber_and_rev{"$pn-$rev"}\n);
-
+    if (defined($cables_by_partnumber_and_rev{"$pn-$rev"})) {
+        print qq($cables_by_partnumber_and_rev{"$pn-$rev"}\n);
+    } else {
+        print "No information for $pn-$rev.\n\n";
+    }
 }
 
 
@@ -553,7 +548,7 @@ Usage:  $progname OPTION [OPTION...]
     --uplinks-details
         Show a count of live uplinks from each node or switch by uplink switch.
 
-    --refresh
+    --run-ibdiagnet
         This tool operates on data already collected by "ibdiagnet".
         This option runs ibdiagnet to refresh the collected data prior
         to reporting on it.
