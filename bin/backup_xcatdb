@@ -1,0 +1,80 @@
+#!/bin/bash
+
+#
+# Run this script with no arguments to do a single backup of your xCAT
+# database.  Run it with the "--add-to-crontab" argument to set it up as a
+# nightly job.
+#
+
+#
+# 2012.11.10 Brian Elliott Finley <bfinley@us.ibm.com>
+#   - created
+# 2013.10.02 Brian Elliott Finley <bfinley@us.ibm.com>
+#   - modified from a README into a script
+#
+
+if [ "$1" == "--add-to-crontab" ]; then
+
+    DIR=$(pwd)
+    BASENAME=$(basename $0)
+    WHICHNAME=$(which $BASENAME 2>/dev/null | tail -n 1 )
+    CRONFILE="/etc/cron.daily/backup_xcatdb"
+
+    if [ -e "/$0" ]; then
+        PROGNAME="/$0"
+
+    elif [ -e $BASENAME ]; then
+        PROGNAME=$(pwd)/$BASENAME
+
+    elif [ -e "/$WHICHNAME" ]; then
+        PROGNAME="/$WHICHNAME"
+    fi
+
+    if [ -e $CRONFILE ]; then
+        echo
+        echo "It appears you already have an entry for this program in crontab."
+        echo
+        echo -n "  "
+        ls -l $CRONFILE
+        echo
+        echo "Exiting without making any changes."
+        echo
+
+        exit 0
+    fi
+
+    #
+    # Install cron file
+    #
+    echo "
+#!/bin/bash
+. /etc/profile.d/xcat.sh
+$PROGNAME >/dev/null
+" > $CRONFILE
+
+    chown root.root $CRONFILE
+    chmod 755 $CRONFILE
+
+    echo
+    echo "Installed!"
+    echo
+    echo -n "  "
+    ls -l $CRONFILE
+    echo
+
+else
+    BACKUP_DIR=/install/xcatdb_backups
+    mkdir -p $BACKUP_DIR
+    echo dumpxCATdb -p ${BACKUP_DIR}/xcatdb.$(hostname -s).$(date +"%Y.%m.%d")
+    dumpxCATdb -p ${BACKUP_DIR}/xcatdb.$(hostname -s).$(date +"%Y.%m.%d")
+
+    echo
+    echo "To add this as a cron job, run the following command:"
+    echo
+    echo "  $0 --add-to-crontab"
+    echo
+
+fi
+
+
+#   vim:ts=4 et ai tw=0:
