@@ -28,7 +28,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{_prefix}/etc/init.d/*
+/etc/init.d/*
 %{_prefix}/sbin/*
 %{_prefix}/share/*
 
