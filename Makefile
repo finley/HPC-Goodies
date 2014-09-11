@@ -11,11 +11,11 @@ SHELL = /bin/sh
 package		= hpc-goodies
 prefix		= /usr
 exec_prefix = ${prefix}
-bindir 		= ${DESTDIR}${exec_prefix}/sbin
-initdir 	= ${DESTDIR}/etc/init.d
-mandir		= ${DESTDIR}${prefix}/share/man
-docdir 		= ${DESTDIR}/usr/share/doc/${package}
-libdir  	= ${DESTDIR}/usr/share/${package}
+bindir 		= ${PREFIX}${exec_prefix}/sbin
+initdir 	= ${PREFIX}/etc/init.d
+mandir		= ${PREFIX}${prefix}/share/man
+docdir 		= ${PREFIX}/usr/share/doc/${package}
+libdir  	= ${PREFIX}/usr/share/${package}
 rpmbuild    = ~/rpmbuild
 
 VERSION = $(shell cat VERSION)
