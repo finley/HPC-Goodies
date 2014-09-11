@@ -123,9 +123,6 @@ $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2:  clean
 	@echo '#dch --release "" --distribution stable --no-force-save-on-release'
 	@echo '#head debian/changelog'
 	@echo
-	@echo '# RPM bits next'
-	@echo 'perl -pi -e "s/^Version:.*/Version:      $$ver/" rpm/${package}.spec'
-	@echo 'head rpm/${package}.spec'
 	@echo '# dont worry about changelog entries in spec file for now...  #vim rpm/${package}.spec'
 	@echo
 	@echo '# commit changes and go'
