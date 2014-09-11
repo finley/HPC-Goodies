@@ -53,13 +53,13 @@ release:
 test_release:  tarball debs rpms
 	@echo 
 	@echo "I'm about to upload the following files to:"
-	@echo "  ~/src/www.systemimager.org/testing/ssm/"
+	@echo "  ~/src/www.systemimager.org/testing/${package}/"
 	@echo "-----------------------------------------------------------------------"
 	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
 	@echo
 	@echo "Hit <Enter> to continue..."
 	@read i
-	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.* ~/src/www.systemimager.org/testing/ssm/
+	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.* ~/src/www.systemimager.org/testing/${package}/
 	@echo
 	@echo "Now run:   cd ~/src/www.systemimager.org/ && make upload"
 	@echo
@@ -68,13 +68,13 @@ test_release:  tarball debs rpms
 stable_release:  tarball debs rpms
 	@echo 
 	@echo "I'm about to upload the following files to:"
-	@echo "  ~/src/www.systemimager.org/stable/ssm/"
+	@echo "  ~/src/www.systemimager.org/stable/${package}/"
 	@echo "-----------------------------------------------------------------------"
 	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
 	@echo
 	@echo "Hit <Enter> to continue..."
 	@read i
-	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.* ~/src/www.systemimager.org/stable/ssm/
+	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.* ~/src/www.systemimager.org/stable/${package}/
 	@echo
 	@echo "Now run:   cd ~/src/www.systemimager.org/ && make upload"
 	@echo
@@ -116,11 +116,11 @@ $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2:  clean
 	@echo 'vim VERSION'
 	@echo 'ver=$$(cat VERSION)'
 	@echo 
-	@echo '# deb pkg bits first'
-	@echo 'git log `git describe --tags --abbrev=0`..HEAD --oneline > /tmp/${package}.gitlog'
-	@echo 'while read line; do dch --newversion $$ver "$$line"; done < /tmp/${package}.gitlog'
-	@echo 'dch --release "" --distribution stable --no-force-save-on-release'
-	@echo 'head debian/changelog'
+	@echo '## deb pkg bits first'
+	@echo '#git log `git describe --tags --abbrev=0`..HEAD --oneline > /tmp/${package}.gitlog'
+	@echo '#while read line; do dch --newversion $$ver "$$line"; done < /tmp/${package}.gitlog'
+	@echo '#dch --release "" --distribution stable --no-force-save-on-release'
+	@echo '#head debian/changelog'
 	@echo
 	@echo '# RPM bits next'
 	@echo 'perl -pi -e "s/^Version:.*/Version:      $$ver/" rpm/${package}.spec'
