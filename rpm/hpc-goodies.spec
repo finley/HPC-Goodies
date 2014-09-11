@@ -5,6 +5,7 @@ Release: 1
 Source: %{name}-%{version}.tar.bz2
 BuildRoot: /tmp/%{name}-buildroot
 BuildArchitectures: noarch
+License: GPLv2
 
 
 %description
