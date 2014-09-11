@@ -1,6 +1,6 @@
 Summary: HPC Goodies
 Name: hpc-goodies
-Version:      14.9
+Version:      4.9
 Release: 1
 Source: %{name}-%{version}.tar.bz2
 BuildRoot: /tmp/%{name}-buildroot
