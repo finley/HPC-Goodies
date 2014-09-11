@@ -1,100 +1,157 @@
 #
-# 	2013.10.11 Brian Finley <bfinley@us.ibm.com>
-#	- improve version handling
-# 	2013.11.07 Brian Finley <bfinley@us.ibm.com>
-#	- include ./var/*
-#   - better handling of version setting in included progs
-#   - put user docs, etc all in one place
+#  vi:set filetype=make noet ai tw=0:
 #
 
-PKG_NAME 	:= hpc_goodies
-RELEASE_ARCHIVE := ~/src/release_archive
+SHELL = /bin/sh
 
-MAJOR_VER 	:= $(shell git describe --tags | sed -e 's/^v//' -e 's/-.*//')
-MAJOR_VER   ?= 0
+#
+# These settings are what I would expect for most modern Linux distros, 
+# and are what work for me unmodified on Ubuntu. -BEF-
+# 
+package		= hpc-goodies
+prefix		= /usr
+exec_prefix = ${prefix}
+bindir 		= ${DESTDIR}${exec_prefix}/sbin
+initdir 	= ${DESTDIR}/etc/init.d
+sysconfdir 	= ${DESTDIR}/etc/sysconfig
+mandir		= ${DESTDIR}${prefix}/share/man
+docdir 		= ${DESTDIR}/usr/share/doc/${package}
+libdir  	= ${DESTDIR}/usr/share/${package}
+rpmbuild    = ~/rpmbuild
 
-MINOR_VER	:= $(shell git describe --tags | sed -e 's/^v[0-9]*-//' -e 's/-.*//')
-MINOR_VER   ?= 0
+VERSION = $(shell cat VERSION)
 
-PATCH_VER	:= $(shell git describe --tags | sed -e 's/^v[0-9]*-[0-9]*-//' -e 's/-.*//')
-PATCH_VER   ?= 0
+TOPDIR := $(CURDIR)
 
-AUTO_VER	:= $(shell git describe --tags | sed -e 's/^v[0-9]*-[0-9]*-[0-9]*-//' -e 's/-.*//')
-AUTO_VER    ?= 0
 
-# In case we have made commits (AUTO_VER) since updating a PATCH_VER in
-# the tag. -BEF-
-PATCH_VER	:= $(shell echo "$$(( $(PATCH_VER) + $(AUTO_VER) ))" )
+.PHONY: all
+all:  $(TOPDIR)/bin/* $(TOPDIR)/etc/init.d/*
 
-VERSION     := ${MAJOR_VER}.${MINOR_VER}.${PATCH_VER}
-
-TMPDIR 		:= $(shell mktemp -d)
-SPECFILE 	:= $(shell mktemp)
-PKG_DIR     := ${PKG_NAME}-${VERSION}
-TARBALL		:= /tmp/${PKG_DIR}.tar.bz2
-
-.PHONY += all
-all: c1eutil
-
-c1eutil: c1eutil/c1eutil.c
-
-.PHONY += install
-install:
-	mkdir -p             				${PREFIX}/usr/sbin/
-	install -m 755 sbin/*				${PREFIX}/usr/sbin/
+.PHONY: install
+install:  all
+	test -d ${sysconfdir} || install -d -m 755 ${sysconfdir}
 	
-	#mkdir -p            				${PREFIX}/usr/share/${PKG_NAME}/
-	#install -m 644 doc/*				${PREFIX}/usr/share/${PKG_NAME}/
-	
-	#mkdir -p ${PREFIX}/usr/share/doc/${PKG_DIR}/
-	#echo "See the files in /usr/share/${PKG_NAME}/" > ${PREFIX}/usr/share/doc/${PKG_DIR}/README
-
-.PHONY += tarball
-tarball:
+	test -d ${bindir} || install -d -m 755 ${bindir}
+	install -m 755 bin/* 					${bindir}
 	
 	#
-	# Make a copy of the repo
-	git clone . ${TMPDIR}/${PKG_DIR}
-	/bin/rm -fr ${TMPDIR}/${PKG_DIR}/.git
-
+	# Libs
 	#
-	# Copy this file over (for testing only)
-	/bin/cp Makefile ${TMPDIR}/${PKG_DIR}/
+	test -d ${libdir} || install -d -m 755 ${libdir}
+	install -m 644 $(TOPDIR)/usr/share/functions.sh ${libdir}/
+	#
+	install -m 644 $(TOPDIR)/CREDITS  	${docdir}
+	install -m 644 $(TOPDIR)/README  	${docdir}
+	#	
 	
-	#
-	# Create an RPM appropriate Makefile
-	cp ${TMPDIR}/${PKG_DIR}/Makefile 								${TMPDIR}/${PKG_DIR}/Makefile.rpm
-	perl -pi -e "s/^MAJOR_VER\s+.*/MAJOR_VER := ${MAJOR_VER}/g" 	${TMPDIR}/${PKG_DIR}/Makefile.rpm
-	perl -pi -e "s/^MINOR_VER\s+.*/MINOR_VER := ${MINOR_VER}/g" 	${TMPDIR}/${PKG_DIR}/Makefile.rpm
-	perl -pi -e "s/^PATCH_VER\s+.*/PATCH_VER := ${PATCH_VER}/g" 	${TMPDIR}/${PKG_DIR}/Makefile.rpm
-	
-	#
-	# Version the Files
-	perl -pi -e "s/__VERSION__/${VERSION}/g"  					        ${TMPDIR}/${PKG_DIR}/${PKG_NAME}.spec
-	
-	#
-	# Tar it up
-	cd ${TMPDIR} && tar -cvjf ${TARBALL} ${PKG_DIR}
 
-.PHONY += rpm
-rpm:	tarball
-	rpmbuild -ta ${TARBALL}
+.PHONY: release
+release:
+	@echo "Please try 'make test_release' or 'make stable_release'"
 
-.PHONY += release
-release:	rpm
-	mkdir -p ${RELEASE_ARCHIVE}
-	cp -i ~/rpmbuild/RPMS/noarch/${PKG_NAME}-${VERSION}-1.noarch.rpm    ${RELEASE_ARCHIVE}
-	cp -i ~/rpmbuild/SRPMS/${PKG_NAME}-${VERSION}-1.src.rpm             ${RELEASE_ARCHIVE}
-	cp -i ${TARBALL}                                                    ${RELEASE_ARCHIVE}
+.PHONY: test_release
+test_release:  tarball debs rpms
+	@echo 
+	@echo "I'm about to upload the following files to:"
+	@echo "  ~/src/www.systemimager.org/testing/ssm/"
+	@echo "-----------------------------------------------------------------------"
+	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
 	@echo
-	@echo "Results:"
-	@/bin/ls -1 ${RELEASE_ARCHIVE}/${PKG_NAME}-${VERSION}* | sed 's/^/  /'
+	@echo "Hit <Enter> to continue..."
+	@read i
+	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.* ~/src/www.systemimager.org/testing/ssm/
+	@echo
+	@echo "Now run:   cd ~/src/www.systemimager.org/ && make upload"
+	@echo
 
-.PHONY += help
-help:
-	@echo "Targets include:"
-	@echo "  help"
-	@echo "  rpm"
-	@echo "  tarball"
-	@echo "  all"
-	@echo "  install"
+.PHONY: stable_release
+stable_release:  tarball debs rpms
+	@echo 
+	@echo "I'm about to upload the following files to:"
+	@echo "  ~/src/www.systemimager.org/stable/ssm/"
+	@echo "-----------------------------------------------------------------------"
+	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
+	@echo
+	@echo "Hit <Enter> to continue..."
+	@read i
+	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.* ~/src/www.systemimager.org/stable/ssm/
+	@echo
+	@echo "Now run:   cd ~/src/www.systemimager.org/ && make upload"
+	@echo
+
+.PHONY: rpm
+rpm:  rpms
+
+.PHONY: rpms
+rpms:  tarball
+	@echo Bake them cookies, grandma!
+	# Quick hack to get rpmbuild to work on Lucid -- was failing w/bzip2 archive
+	# Turn it into a gz archive instead of just tar to avoid confusion about canonical archive -BEF-
+	bzcat $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2 | gzip > $(TOPDIR)/tmp/${package}-$(VERSION).tar.gz 
+	rpmbuild -ta $(TOPDIR)/tmp/${package}-$(VERSION).tar.gz
+	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-$(VERSION)-*.rpm $(TOPDIR)/tmp/
+	/bin/cp -i ${rpmbuild}/SRPMS/${package}-$(VERSION)-*.rpm	$(TOPDIR)/tmp/
+	
+	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
+
+.PHONY: deb
+deb:  debs
+
+.PHONY: debs
+debs:  tarball
+	ln $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2 $(TOPDIR)/tmp/${package}_$(VERSION).orig.tar.bz2
+	cd $(TOPDIR)/tmp/${package}-$(VERSION) && debuild -us -uc
+	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
+
+.PHONY: tarball
+tarball:  $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2.sign
+$(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2.sign: $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2
+	cd $(TOPDIR)/tmp && gpg --detach-sign -a --output ${package}-$(VERSION).tar.bz2.sign ${package}-$(VERSION).tar.bz2
+	cd $(TOPDIR)/tmp && gpg --verify ${package}-$(VERSION).tar.bz2.sign
+
+$(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2:  clean
+	@echo "Did you update the version and changelog info in?:"
+	@echo 
+	@echo '# Scrape-n-paste'
+	@echo 'vim VERSION'
+	@echo 'ver=$$(cat VERSION)'
+	@echo 
+	@echo '# deb pkg bits first'
+	@echo 'git log `git describe --tags --abbrev=0`..HEAD --oneline > /tmp/${package}.gitlog'
+	@echo 'while read line; do dch --newversion $$ver "$$line"; done < /tmp/${package}.gitlog'
+	@echo 'dch --release "" --distribution stable --no-force-save-on-release'
+	@echo 'head debian/changelog'
+	@echo
+	@echo '# RPM bits next'
+	@echo 'perl -pi -e "s/^Version:.*/Version:      $$ver/" rpm/${package}.spec'
+	@echo 'head rpm/${package}.spec'
+	@echo '# dont worry about changelog entries in spec file for now...  #vim rpm/${package}.spec'
+	@echo
+	@echo '# commit changes and go'
+	@echo 'git commit -m "prep for v$$ver" -a'
+	@echo 'git tag v$$ver'
+	@echo 
+	@echo "If 'yes', then hit <Enter> to continue..."; \
+	read i
+	mkdir -p    $(TOPDIR)/tmp/
+	git clone . $(TOPDIR)/tmp/${package}-$(VERSION)/
+	git log   > $(TOPDIR)/tmp/${package}-$(VERSION)/CHANGE.LOG
+	rm -fr      $(TOPDIR)/tmp/${package}-$(VERSION)/.git
+	rm -f       $(TOPDIR)/tmp/${package}-$(VERSION)/bin/ssm_web-report
+	find  $(TOPDIR)/tmp/${package}-$(VERSION) -type f -exec chmod ug+r  {} \;
+	find  $(TOPDIR)/tmp/${package}-$(VERSION) -type d -exec chmod ug+rx {} \;
+	cd    $(TOPDIR)/tmp/ && tar -ch ${package}-$(VERSION) | bzip2 > ${package}-$(VERSION).tar.bz2
+	ls -l $(TOPDIR)/tmp/
+
+.PHONY: clean
+clean:
+	rm -fr $(TOPDIR)/tmp/
+	rm -fr $(TOPDIR)/usr/share/man/
+
+.PHONY: distclean
+distclean: clean
+	rm -f  $(TOPDIR)/configure-stamp
+	rm -f  $(TOPDIR)/build-stamp
+	rm -f  $(TOPDIR)/debian/files
+	rm -fr $(TOPDIR)/debian/${package}/
+

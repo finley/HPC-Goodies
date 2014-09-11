@@ -28,7 +28,7 @@ PATH=/usr/sbin:/sbin:/usr/bin:/bin
 # Consider moving to /etc/hpc_goodies/hpc_goodies.functions, but for now
 # assume it's in the same directory as the script.
 #
-FUNCTIONS="$(dirname $0)/hpc_goodies.functions"
+FUNCTIONS="/usr/share/hpc-goodies/functions.sh"
 PROGNAME=$(basename $0)
 CONFIG=/etc/sysconfig/set_cpu_state
 
