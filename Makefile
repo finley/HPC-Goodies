@@ -28,8 +28,8 @@ all:  $(TOPDIR)/bin/* $(TOPDIR)/etc/init.d/*
 
 .PHONY: install
 install:  all
-	test -d ${bindir} || install -d -m 755 ${bindir}
-	install -m 755 bin/* 					${bindir}
+	test -d ${bindir} || install -d -m 755  ${bindir}
+	install -m 755 $(TOPDIR)/bin/*			${bindir}
 	
 	#
 	# Libs
