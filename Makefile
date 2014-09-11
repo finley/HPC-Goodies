@@ -37,6 +37,7 @@ install:  all
 	test -d ${libdir} || install -d -m 755 ${libdir}
 	install -m 644 $(TOPDIR)/usr/share/functions.sh ${libdir}/
 	#
+	test -d ${docdir} || install -d -m 755 ${docdir}
 	install -m 644 $(TOPDIR)/CREDITS  	${docdir}
 	install -m 644 $(TOPDIR)/README  	${docdir}
 	#	
