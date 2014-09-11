@@ -13,7 +13,6 @@ prefix		= /usr
 exec_prefix = ${prefix}
 bindir 		= ${DESTDIR}${exec_prefix}/sbin
 initdir 	= ${DESTDIR}/etc/init.d
-sysconfdir 	= ${DESTDIR}/etc/sysconfig
 mandir		= ${DESTDIR}${prefix}/share/man
 docdir 		= ${DESTDIR}/usr/share/doc/${package}
 libdir  	= ${DESTDIR}/usr/share/${package}
@@ -29,8 +28,6 @@ all:  $(TOPDIR)/bin/* $(TOPDIR)/etc/init.d/*
 
 .PHONY: install
 install:  all
-	test -d ${sysconfdir} || install -d -m 755 ${sysconfdir}
-	
 	test -d ${bindir} || install -d -m 755 ${bindir}
 	install -m 755 bin/* 					${bindir}
 	
