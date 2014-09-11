@@ -66,7 +66,8 @@ test_release:  tarball debs rpms
 	@echo
 
 .PHONY: stable_release
-stable_release:  tarball debs rpms
+stable_release:  tarball rpms
+#stable_release:  tarball debs rpms
 	@echo 
 	@echo "I'm about to upload the following files to:"
 	@echo "  ~/src/www.systemimager.org/stable/${package}/"
