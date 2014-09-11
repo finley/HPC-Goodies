@@ -331,8 +331,8 @@ version();
 print << "EOF";
 Usage:  $progname --input-file FILE [OPTION...]
 
-    Options can be abbreviated to minimum uniqueness.  For example, you could
-    use "-h" or "--h" instead of "--help".
+    Options can be abbreviated to minimum uniqueness.  For example, you
+    could use "-h" or "--h" instead of "--help".
 
     --help
 
