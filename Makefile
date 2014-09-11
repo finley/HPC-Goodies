@@ -51,7 +51,8 @@ release:
 	@echo "Please try 'make test_release' or 'make stable_release'"
 
 .PHONY: test_release
-test_release:  tarball debs rpms
+test_release:  tarball rpms
+#test_release:  tarball debs rpms
 	@echo 
 	@echo "I'm about to upload the following files to:"
 	@echo "  ~/src/www.systemimager.org/testing/${package}/"
