@@ -31,6 +31,9 @@ install:  all
 	test -d ${bindir} || install -d -m 755  ${bindir}
 	install -m 755 $(TOPDIR)/bin/*			${bindir}
 	
+	test -d ${initdir} || install -d -m 755	${initdir}
+	install -m 755 $(TOPDIR)/etc/init.d/*	${initdir}
+	
 	#
 	# Libs
 	#
