@@ -88,10 +88,7 @@ rpm:  rpms
 .PHONY: rpms
 rpms:  tarball
 	@echo Bake them cookies, grandma!
-	# Quick hack to get rpmbuild to work on Lucid -- was failing w/bzip2 archive
-	# Turn it into a gz archive instead of just tar to avoid confusion about canonical archive -BEF-
-	bzcat $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2 | gzip > $(TOPDIR)/tmp/${package}-$(VERSION).tar.gz 
-	rpmbuild -ta $(TOPDIR)/tmp/${package}-$(VERSION).tar.gz
+	rpmbuild -ta $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2
 	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-$(VERSION)-*.rpm $(TOPDIR)/tmp/
 	/bin/cp -i ${rpmbuild}/SRPMS/${package}-$(VERSION)-*.rpm	$(TOPDIR)/tmp/
 	
@@ -117,26 +114,16 @@ $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2.sign: $(TOPDIR)/tmp/${package}-$(VER
 	cd $(TOPDIR)/tmp && gpg --verify ${package}-$(VERSION).tar.bz2.sign
 
 $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2:  clean all
-	@echo "Did you update the version and changelog info in?:"
+	@echo "Did you update the version in VERSION?"
 	@echo 
-	@echo '# Scrape-n-paste'
-	@echo 'vim VERSION'
-	@echo 'ver=$$(cat VERSION)'
-	@echo 
-	@echo '## deb pkg bits first'
-	@echo '#git log `git describe --tags --abbrev=0`..HEAD --oneline > /tmp/${package}.gitlog'
-	@echo '#while read line; do dch --newversion $$ver "$$line"; done < /tmp/${package}.gitlog'
-	@echo '#dch --release "" --distribution stable --no-force-save-on-release'
-	@echo '#head debian/changelog'
-	@echo
-	@echo '# dont worry about changelog entries in spec file for now...  #vim rpm/${package}.spec'
-	@echo
-	@echo '# commit changes and go'
-	@echo 'git commit -m "prep for v$$ver" -a'
-	@echo 'git tag v$$ver'
+	@echo "  Here's what it's currently set to: $(VERSION)"
 	@echo 
 	@echo "If 'yes', then hit <Enter> to continue..."; \
 	read i
+	@echo 
+	
+	git commit -m "prep for v$(VERSION)" -a
+	git tag v$(VERSION)
 	mkdir -p    $(TOPDIR)/tmp/
 	git clone . $(TOPDIR)/tmp/${package}-$(VERSION)/
 	git log   > $(TOPDIR)/tmp/${package}-$(VERSION)/CHANGE.LOG
