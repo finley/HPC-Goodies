@@ -128,7 +128,7 @@ $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2:  clean all
 	git clone . $(TOPDIR)/tmp/${package}-$(VERSION)/
 	git log   > $(TOPDIR)/tmp/${package}-$(VERSION)/CHANGE.LOG
 	rm -fr      $(TOPDIR)/tmp/${package}-$(VERSION)/.git
-	perl -pi -e "s/^Version:.*/Version:      $(VERSION)/" $(TOPDIR)/tmp/rpm/${package}.spec
+	perl -pi -e "s/^Version:.*/Version:      $(VERSION)/" $(TOPDIR)/tmp/${package}-$(VERSION)rpm/${package}.spec
 	find  $(TOPDIR)/tmp/${package}-$(VERSION) -type f -exec chmod ug+r  {} \;
 	find  $(TOPDIR)/tmp/${package}-$(VERSION) -type d -exec chmod ug+rx {} \;
 	cd    $(TOPDIR)/tmp/ && tar -ch ${package}-$(VERSION) | bzip2 > ${package}-$(VERSION).tar.bz2
