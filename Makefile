@@ -91,11 +91,6 @@ rpms:  tarball
 	rpmbuild -ta $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2
 	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-$(VERSION)-*.rpm $(TOPDIR)/tmp/
 	/bin/cp -i ${rpmbuild}/SRPMS/${package}-$(VERSION)-*.rpm	$(TOPDIR)/tmp/
-	
-	# RPM builds a noarch version and a version specific for this arch.  The
-	# arch specific version is a superset of the noarch contents, so we only
-	# want it.  Why, RPM, can't we tell you to stop building the noarch.
-	/bin/rm $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.noarch.rpm
 	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
 
 .PHONY: deb
