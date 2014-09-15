@@ -122,8 +122,8 @@ $(TOPDIR)/tmp/${package}-$(VERSION).tar.bz2:  clean all
 	read i
 	@echo 
 	
-	git commit -m "prep for v$(VERSION)" -a
-	git tag v$(VERSION)
+	-git commit -m "prep for v$(VERSION)" -a
+	-git tag v$(VERSION)
 	mkdir -p    $(TOPDIR)/tmp/
 	git clone . $(TOPDIR)/tmp/${package}-$(VERSION)/
 	git log   > $(TOPDIR)/tmp/${package}-$(VERSION)/CHANGE.LOG
