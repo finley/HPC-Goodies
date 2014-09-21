@@ -6,6 +6,16 @@
         C1E=off
         C_STATE_LIMIT=2
 
+- backup_xcatdb -- Consider adding a "--git /path/to/local/repo" option
+  that will do a nightly xCAT DB dump into the repository, rather than a
+  date stamped directory, and commit all changes.
+
+  This would allow for a very simple way to view changes made to the
+  xCAT DB from day to day via "git diff" or through the web interface of
+  an upstream repo tool, such as gitlab.
+
+--
+
 dma latency probabbly 
 5:04:56 PM
 ◄
