@@ -1,6 +1,6 @@
 /* IBM(c) 2012
  * (c) IBM Corp
- * Jarrod Johnson <jbjohnso@us.ibm.com>
+ * Jarrod Johnson <jjohnson2@lenovo.com>
  * This program simply requests the specified latency limit of the linux kernel  
  * PM QoS interface for DMA.
  * The only mechanism manipulated, to my knowledge, is the idle states of the 

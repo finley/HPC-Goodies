@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 #
-#   2014.06.26 Brian Elliott Finley <bfinley@us.ibm.com> & Mark Atkins <atkinsm@us.ibm.com>
+#   2014.06.26 Brian Elliott Finley <bfinley@lenovo.com> & Mark Atkins <matkins@lenovo.com>
 #   - created
 #   - credit also goes to Jarrod Johnson for his initial creation of a similar
 #     tool that lent credence to this concept
@@ -289,8 +289,8 @@ Usage:  $progname OPTION [OPTION...]
         Provide debug level output information.
         
           
-      by Brian Finley <bfinley\@us.ibm.com> 
-       & Mark Atkins <atkinsm\@us.ibm.com>
+      by Brian Finley <bfinley\@lenovo.com> 
+       & Mark Atkins <matkins\@lenovo.com>
 
 EOF
 

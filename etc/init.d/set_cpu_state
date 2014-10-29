@@ -16,9 +16,9 @@
 ### END INIT INFO
 
 #
-# 2012.11.06 Brian Elliott Finley <bfinley@us.ibm.com>
+# 2012.11.06 Brian Elliott Finley <bfinley@lenovo.com>
 #  - Created
-# 2013.02.25 Brian Elliott Finley <bfinley@us.ibm.com>
+# 2013.02.25 Brian Elliott Finley <bfinley@lenovo.com>
 # - allow "status" execution without requiring config file
 #
 

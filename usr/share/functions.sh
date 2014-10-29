@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# 2014.02.25 Brian Elliott Finley <bfinley@us.ibm.com>
+# 2014.02.25 Brian Elliott Finley <bfinley@lenovo.com>
 #   - created
 #
 

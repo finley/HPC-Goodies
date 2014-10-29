@@ -1,17 +1,17 @@
 #!/usr/bin/perl -w
 
 #
-# 2012.04.12  Brian Finley <bfinley@us.ibm.com>
+# 2012.04.12  Brian Finley <bfinley@lenovo.com>
 # - created to generate p2p labels for UChicago install by Rochester CSC
-# 2014.01.13  Brian Finley <bfinley@us.ibm.com>
+# 2014.01.13  Brian Finley <bfinley@lenovo.com>
 # - updated to be more flexible
 # - handle striping of some tier2 devices across a tier1 device
 # - handle different uplink counts for each tier2 device
 # - handle nodes directly connected to tier1 device (by treating as a tier2 with very
 #   few ports)
-# 2014.01.14  Brian Finley <bfinley@us.ibm.com>
+# 2014.01.14  Brian Finley <bfinley@lenovo.com>
 # - updated total number of tier1 device cards
-# 2014.03.10  Brian Finley <bfinley@us.ibm.com>
+# 2014.03.10  Brian Finley <bfinley@lenovo.com>
 # - Added --force, --output-file, --columns
 #
 
@@ -426,7 +426,7 @@ Usage:  $progname --input-file FILE [OPTION...]
     
         This software is provided as-is, with no express or implied
         support.  However, the author would love to receive your
-        patches.  Please contact Brian E. Finley <bfinley\@us.ibm.com>
+        patches.  Please contact Brian E. Finley <bfinley\@lenovo.com>
         with patches and/or suggestions.
 
 

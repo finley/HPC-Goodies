@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 #
-#   2013.10.17 Brian Elliott Finley <bfinley@us.ibm.com>
+#   2013.10.17 Brian Elliott Finley <bfinley@lenovo.com>
 #   - created
 #   2014.06.30 Francis Dang <francis@tamu.edu>
 #   - tweaked output of cables hash to handle part numbers with dashes

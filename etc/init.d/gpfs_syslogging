@@ -16,9 +16,9 @@
 ### END INIT INFO
 
 #
-# 2012.07.30 Brian Elliott Finley <bfinley@us.ibm.com>
+# 2012.07.30 Brian Elliott Finley <bfinley@lenovo.com>
 #  - Created
-# 2014.05.26 Brian Elliott Finley <bfinley@us.ibm.com>
+# 2014.05.26 Brian Elliott Finley <bfinley@lenovo.com>
 #  - Improve, so that only the init script is needed (no
 #  separate /usr/bin/gpfs_syslogging anymore), and more importantly,
 #  don't block closure of an ssh session when issued over an ssh

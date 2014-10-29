@@ -32,6 +32,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/share/*
 
 %changelog
-* Fri Sep 20 2013 Brian Elliott Finley <bfinley@us.ibm.com>
+* Fri Sep 20 2013 Brian Elliott Finley <bfinley@lenovo.com>
 - created this spec file
 

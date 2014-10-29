@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #
-# 2012.08.19 Brian Elliott Finley <bfinley@us.ibm.com>
+# 2012.08.19 Brian Elliott Finley <bfinley@lenovo.com>
 # - created
-# 2014.06.25 Brian Elliott Finley <bfinley@us.ibm.com>
+# 2014.06.25 Brian Elliott Finley <bfinley@lenovo.com>
 #	- auto-detect file systems on management node by default
 #
 
