@@ -529,9 +529,6 @@ Usage:  $progname OPTION [OPTION...]
     "switch port") for all links.  If errors are detected on any ports,
     they will also be indicated.
 
-    If ibdiagnet is run with the "--get_cable_info" option, then this
-    program will also report a cable type for each point to point link.
-
     --help
         Show this output.
     
@@ -549,9 +546,12 @@ Usage:  $progname OPTION [OPTION...]
         Show a count of live uplinks from each node or switch by uplink switch.
 
     --run-ibdiagnet
-        This tool operates on data already collected by "ibdiagnet".
-        This option runs ibdiagnet to refresh the collected data prior
-        to reporting on it.
+
+        This tool operates on data already pre-collected by "ibdiagnet".
+        This option will run ibdiagnet to update the data prior to
+        reporting on it, and it will include the ibdiagnet
+        "--get_cable_info" option, which will let this tool include the
+        cable type in the output for each point to point link.
 
     --ibdiagnet_dir DIRECTORY_NAME
         Where DIRECTORY_NAME is the name of the directory where the
@@ -575,7 +575,7 @@ Usage:  $progname OPTION [OPTION...]
         nxt1101 HCA-1 Port  1  <=>         sx6036-1101/U1 Port  1
 
           
-      by Brian Finley, <bfinley\@us.ibm.com>
+      by Brian Finley, <bfinley\@lenovo.com>
 
 EOF
 
