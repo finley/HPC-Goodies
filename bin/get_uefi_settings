@@ -1,0 +1,41 @@
+#!/bin/bash
+
+#
+# 2012.09.19 Brian Elliott Finley <bfinley@lenovo.com>
+#   - created
+# 2012.11.13 Brian Elliott Finley <bfinley@lenovo.com>
+#   - allow multiple machines
+# 2013.03.05 Brian Elliott Finley <bfinley@lenovo.com>
+#   - use persistent cache directory
+#
+
+NR=$1
+
+if [ -z $NR ]; then
+    echo "$0 NODERANGE"
+    exit 1
+fi
+
+psh $NR mkdir -p /opt/ibm/toolscenter/asu/
+prsync /opt/ibm/toolscenter/asu/asu64 $NR:/opt/ibm/toolscenter/asu/asu64
+xdsh $NR  ' 
+/opt/ibm/toolscenter/asu/asu64 show > /tmp/mysettings.asu 2>/dev/null
+' 2>&1 | perl -pi -e 's/ssh: connect to host \S+/ssh: connect to host/'
+
+cache_dir=/var/cache/hpc-goodies/uefi_settings
+mkdir -p $cache_dir
+
+for node in $(nodels $NR)
+do
+    # Turns out xdcp can't do this yet.  Doesn't work with service nodes out of the box...
+    #xdcp $NR --pull /tmp/mysettings.asu $cache_dir
+
+    echo -n "scp -q $node:/tmp/mysettings.asu $cache_dir/$node  "
+    scp -q $node:/tmp/mysettings.asu $cache_dir/$node && echo "Done."
+
+done
+
+echo
+echo "ASU settings have been retrieved and may be found in this directory: $cache_dir"
+echo
+
