@@ -1,7 +1,11 @@
 N: Brian Elliott Finley
+E: bfinley@lenovo.com
 E: brian@thefinleys.com
-D: creator
+D: creator of many of the tools in this package
 D: upstream maintainer
 
 N: Jarrod Johnson
+E: jjohnson2@lenovo.com
+D: set_dma_latency
+D: c1eutil
 
