@@ -1,0 +1,40 @@
+#!/bin/bash
+
+#
+# 2012.08.29 Brian Elliott Finley <bfinley@lenovo.com>
+#   - created
+#
+
+echo need to re-test.  exiting 0 until then...
+exit 0
+
+NR=$1
+
+if [ -z $NR ]; then
+    echo "$0 NODERANGE"
+    exit 1
+fi
+
+
+push_best_recipe() {
+
+    scp ${ASU_BEST_RECIPE_FILE} ${node}:/tmp/
+    ssh $node /opt/ibm/toolscenter/asu/asu64 batch /tmp/${NODE_TYPE}.asu
+}
+
+
+choose_best_recipe() {
+
+    NODE_TYPE=$(nodels $node vpd.mtm /* or similar... */)
+    ASU_BEST_RECIPE_FILE=/etc/hpc-goodies/asu_best_recipe/${NODE_TYPE}.asu
+}
+
+
+for node in $(nodels $NR)
+do
+    choose_best_recipe
+    push_best_recipe
+done
+
+echo "Please reboot $NR to make the new ASU settings to take effect."
+
