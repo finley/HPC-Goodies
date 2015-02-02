@@ -1,0 +1,266 @@
+#!/usr/bin/perl -w
+
+#
+#   2012.09.19 Brian Elliott Finley <bfinley@lenovo.com>
+#   - created
+#   2012.11.13 Brian Elliott Finley <bfinley@lenovo.com>
+#   - support noderange
+#   2012.11.19 Brian Elliott Finley <bfinley@lenovo.com>
+#   - support --golden-node (in addition to --golden-file)
+#
+
+# 
+#   TODO - suggestions from Louis Capps:
+#   - add "pretty print"
+#   - disable "-v" option
+#   - Just use "NODERANGE", don't ask for -n, use ARGV[0]
+#
+#   IDEAs:
+#   - have "best recipe" ASU settings stored in a table in the xCAT
+#   database (as a blob, or long text file)
+#
+
+
+use strict;
+use Getopt::Long;
+use File::Basename;
+
+GetOptions(
+
+    "help"              => \my $help,
+    "noderange=s"       => \my $noderange,
+    "golden-file=s" 	=> \my $golden_file,
+    "golden-node=s" 	=> \my $golden_node,
+    "test-this-file=s" 	=> \my $test_file,
+    "verbose"           => \my $verbose,
+
+) or usage() and exit(1);
+
+
+if( ! defined $noderange  and ! defined $test_file ) {
+    usage();
+    print "  Try either the --noderange or --test-this-file option.\n\n";
+    exit 1;
+} 
+if( defined $noderange  and defined $test_file ) {
+    usage();
+    print "  Try either the --noderange or --test-this-file option.\n\n";
+    exit 1;
+} 
+
+if ( defined $test_file and ! -e $test_file ) {
+    usage();
+    print "  Test file $test_file does not exist.\n\n";
+    exit 1;
+}
+
+if ( ! defined $golden_file and ! defined $golden_node ) {
+    usage();
+    print "  Try --golden-node NODENAME\n";
+    print "   or\n";
+    print "  Try --golden-file FILENAME.asu\n\n";
+    exit 1;
+}
+
+if ( defined $golden_file and ! -e $golden_file ) {
+    usage();
+    print "  Golden file $golden_file does not exist.\n\n";
+    exit 1;
+}
+
+if ( defined $help ) {
+    usage();
+    exit 0;
+}
+
+my $dir = `mktemp -d -t test_asu_settings.XXXX`;
+chomp $dir;
+
+my $file;
+my $skip_regex = '(SYSTEM_PROD_DATA.SysInfoSerialNum|.*MacAddress.*=|SYSTEM_PROD_DATA.SysInfoUUID|IMM.IPv6LinkLocalIPAddress|IMM.HostName|IMM.HostIPAddress|IMM.DHCPAssignedHostIP|IMM.DHCPAssignedHostname|IMM.MACAddress)';
+
+if( defined $golden_node ) {
+    my $cmd = qq(nodels $golden_node);
+    open(INPUT,"$cmd|") or die("Couldn't run $cmd for input");
+    while(<INPUT>) {
+        chomp;
+        $golden_node = $_;
+        last;
+    }
+    close(INPUT);
+
+    $noderange = "$golden_node,$noderange";
+}
+
+my %files_by_node;
+if(defined $noderange) {
+
+    my $cmd;
+
+    $cmd = qq(nodels $noderange);
+    open(INPUT,"$cmd|") or die("Couldn't run $cmd for input");
+    while(<INPUT>) {
+        chomp;
+        my $node = $_;
+        $files_by_node{$node} = "$dir/$node";
+    }
+    close(INPUT);
+
+    $cmd = qq(xdsh $noderange "/opt/ibm/toolscenter/asu/asu64 show > /tmp/mysettings.asu 2>/dev/null" 2>&1) . q( | perl -pi -e 's/ssh: connect to host \S+/ssh: connect to host/');
+    system($cmd);  # Don't test for success here...
+
+    foreach my $node (sort keys %files_by_node) {
+
+        print  qq($node: Retrieving ASU settings file from node.  );
+        $cmd = qq(scp -q $node:/tmp/mysettings.asu $files_by_node{$node});
+        unless( !system($cmd) ) {
+            print qq(Fail!\n);
+        }
+	print qq(\n);
+    }
+
+} else {
+
+    $files_by_node{$test_file} = $test_file;
+    
+}
+
+
+#
+# Read-in the golden file
+#
+my %golden_hash;
+if( defined $golden_node ) {
+    $file = $files_by_node{$golden_node};
+} else {
+    $file = $golden_file;
+}
+
+open(FILE,"<$file") or die("Couldn't open $file for reading");
+while(<FILE>) {
+    chomp;
+
+    next if( m/^$skip_regex/ );
+
+    if( m/(.*?)=(.*)/ ) {
+        my $parameter = $1;
+        my $value = $2;
+
+        $golden_hash{$1}=$2;
+    }
+}
+close(FILE);
+
+
+foreach my $node (sort keys %files_by_node) {
+
+    my $file = $files_by_node{$node};
+
+    #
+    # Read-in each file to test
+    #
+    my %test_hash;
+    open(FILE,"<$file") or die("Couldn't open $file for reading");
+    while(<FILE>) {
+
+        chomp;
+    
+        next if( m/^$skip_regex/ );
+    
+        if( m/(.*?)=(.*)/ ) {
+            my $parameter = $1;
+            my $value = $2;
+    
+            $test_hash{$1}=$2;
+        }
+    }
+    close(FILE);
+    
+    my $difference_count = 0;
+    
+    print "$node: --------------------------------------------------\n" if($verbose);
+    print "$node: Golden  vs.  Tested\n" if($verbose);
+    print "$node: --------------------------------------------------\n" if($verbose);
+    #
+    # First, let's go through the golden_hash
+    #
+    foreach my $parameter (sort keys %golden_hash) {
+    
+        if( ! defined $test_hash{$parameter} ) {
+            $test_hash{$parameter} = "";
+        }
+    
+        if( $golden_hash{$parameter} ne $test_hash{$parameter} ) {
+    
+            print qq($node: $parameter\t"$golden_hash{$parameter}"\t"$test_hash{$parameter}"\n);
+            $difference_count++;
+    
+            delete $test_hash{$parameter};
+        }
+    }
+    
+    #
+    # Now we go through the remaining entries in the $test_hash, if there are any.
+    #
+    foreach my $parameter (sort keys %test_hash) {
+    
+        if( ! defined $golden_hash{$parameter} ) {
+            $golden_hash{$parameter} = "";
+        }
+    
+        if( $golden_hash{$parameter} ne $test_hash{$parameter} ) {
+    
+            print qq($node: $parameter\t"$golden_hash{$parameter}"\t"$test_hash{$parameter}"\n);
+            $difference_count++;
+        }
+    }
+    
+    print "$node: --------------------------------------------------\n" if($verbose);
+    print "$node: Difference count: $difference_count\n";
+    print "$node: --------------------------------------------------\n" if($verbose);
+    
+}
+
+unlink $dir;
+
+exit 0;
+
+
+
+########################################################################
+#
+#   BEGIN Subroutines
+#
+
+sub usage {
+    my $progname = basename($0);
+print << "EOF";
+
+Usage:  $progname [--golden-node NODENAME | --golden-file FILENAME.asu] [--noderange NODERANGE | --test-this-file TEST_FILENAME.asu]
+
+  --noderange NODERANGE
+
+  --test-this-file TEST_FILENAME.asu
+
+  --golden-node NODENAME
+      Take the ASU settings from this node, and compare the noderange or
+      testfile against these settings.
+
+  --golden-file GOLDEN_FILENAME.asu
+      This is an ASU settings file pulled from a "golden node" via the "asu64
+      show" command.
+
+  --verbose
+      Show column headers, etc.
+    
+EOF
+
+    return 1;
+}
+
+#
+#   END Subroutines
+#
+########################################################################
+
+
