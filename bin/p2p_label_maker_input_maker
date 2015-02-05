@@ -13,6 +13,8 @@
 # - updated total number of tier1 device cards
 # 2014.03.10  Brian Finley <bfinley@lenovo.com>
 # - Added --force, --output-file, --columns
+# 2015.02.05  Brian Finley <bfinley@lenovo.com>
+#   - future comments to be added via the git log
 #
 
 use strict;
@@ -20,22 +22,33 @@ use Getopt::Long;
 use File::Basename;
 
 my $progname = basename($0);
-my $pkgname = 'infiniband_goodies';
+my $pkgname = 'HPC Goodies';
 my $version_number = '0.4.4';
+
+our @output;
 
 my $columns = 1;
 GetOptions(
-    "help"          => \my $help,
-    "version"       => \my $version,
-    "columns=i"     =>    \$columns,
-    "output-file=s" => \my $output_file,
-    "input-file=s"  => \my $in_file,
-    "force"         => \my $force,
-    "debug"         => \my $debug,
+    "help"              => \my $help,
+    "version"           => \my $version,
+    "columns=i"         =>    \$columns,
+    "output-file=s"     => \my $output_file,
+    "input-file=s"      => \my $in_file,
+    "debug"             => \my $debug,
+    "create-template"   => \my $create_template,
 ) or usage() and exit(1);
 
 if ( defined $help ) {
     usage();
+    exit 0;
+}
+elsif ( defined $version ) {
+    version();
+    exit 0;
+}
+elsif ( defined $create_template ) {
+    create_template_file();
+    print_output();
     exit 0;
 }
 
@@ -43,11 +56,6 @@ if ( ! defined $in_file ) {
     usage();
     print "\n  >> Try --input-file FILENAME\n\n";
     exit 1;
-}
-
-if ( defined $version ) {
-    version();
-    exit 0;
 }
 
 my $stanza_terminator = '^(\s+|$)';
@@ -235,7 +243,6 @@ print qq(> begin "Create output"\n) if(defined $debug);
 #   Create output
 #
 my $column = 1;
-my @output;
 foreach my $tier1_port (reverse schwartzian_sort (keys %p2p_assignments) ) {
 
     print qq(>> processing tier1_port "$tier1_port"\n) if(defined $debug);
@@ -272,41 +279,7 @@ print "Using $total_tier1_ports available ports across $tier1_count tier1 switch
 print "and $total_tier2_uplinks uplink ports across $tier2_count tier2 devices\n";
 print "\n";
 
-#
-#   Time to print the output
-#
-$file = $output_file;
-if(defined $file) {
-
-    if( defined $force or ! -e "$file") {
-
-        open(FILE,">$file") or die("Couldn't open $file for writing");
-        foreach(@output) {
-            print FILE $_;
-        }
-        close(FILE);
-    
-        print "Your p2p label maker input can be found here: $file\n";
-        print "\n";
-
-    } else {
-
-        print "\n";
-        print "$file already exists.\n";
-        print "\n";
-        print " --> Try a different file or use --force\n";
-        print "\n";
-
-    } 
-
-} else {
-    foreach(@output) {
-        print $_;
-    }
-}
-
-#my $used_tier1_ports = keys %p2p_assignments;
-#print "\n# Tier2 devices consumed $used_tier1_ports of $total_tier1_ports available tier1 ports.\n" if(defined $debug);
+print_output();
 
 exit 0;
 
@@ -344,66 +317,11 @@ Usage:  $progname --input-file FILE [OPTION...]
         following format.  Hash marks are fine within a section, but an
         empty line indicates the end of a section.
 
-            [tier1]
-            #
-            #   Format:
-            #   UNIQUE_IDENTIFIER TOTAL_PORTS SPACE_DELIMITED_LIST_OF_USED_PORTS
-            #
-            H19/L1 18 1 2 3 4 5 6 7 8
-            H19/L2 18
-            H19/L3 18
 
-            
-            [tier2]
-            #
-            #   Format:
-            #   UNIQUE_IDENTIFIER TOTAL_PORTS UPLINK_PORTS [STRIPED]
-            #
-            # Node with 2x dual-port adapters connected to tier1
-            #   Resulting ports that get assigned in output:
-            #       K24/U13/H1/1
-            #       K24/U13/H1/2
-            #       K24/U13/H2/1
-            #       K24/U13/H2/2
-            #
-            K24/U13/H1 2 2 striped
-            K24/U13/H2 2 2 striped
-            #
-            #
-            # Node with only port 1 of a dual-port adapter connected to tier1 
-            #   Resulting ports that get assigned in output:
-            #       K24/U13/H1/1
-            #
-            K24/U13/H1 1 1
-            #
-            #
-            # Node with only port 2 of a dual-port adapter connected to tier1
-            #   Resulting ports that get assigned in output:
-            #       K24/U13/H1/2
-            #
-            K24/U13/H1 2 1
-            #
-            #
-            # 36port Leaf Switches in an iDataPlex rack
-            #   Resulting ports that get assigned in output:
-            #       K22/B/U8/25 - K22/B/U8/36
-            #
-            K22/B/U8 36 12
-            K22/D/U8 36 12
-            K22/D/U6 36 12
-            #
-            #
-            # 36port Leaf Switch in standard rack
-            #   Resulting ports that get assigned in output:
-            #       K17/U40/19 - K17/U40/36
-            #
-            K17/U40 36 18
+    --create-template
 
-
-        Additional FILE format details:
-
-            The optional argument "striped" indicates striping across
-            the tier1 devices.
+        Create a heavily commented input-file template that can be used
+        as an example and modified to meet your needs.
 
 
     --output-file FILE
@@ -456,7 +374,10 @@ sub get_tmp_file {
 
     my $file;
 
-    my $template_base = '/tmp/multipath.conf';
+    my $template_base = "/tmp/$progname";
+    if($create_template) {
+        $template_base .= ".INPUT_TEMPLATE";
+    }
     my $cmd = qq(mktemp $template_base.XXX);
 
     open(INPUT,"$cmd|") or die("Couldn't run $cmd for input");
@@ -497,6 +418,175 @@ sub schwartzian_sort {
     } map { [$_, m/(\d+)$/, uc($_)] } @_;
 }
 
+sub create_template_file {
+
+    my $output_file = get_tmp_file() unless($output_file);
+
+    my $file = $output_file;
+    open(FILE,">$file") or die("Coudn't open $file for writing");
+
+    push @output, <<"EOF";
+########################################################################
+#
+#   Template Instructions
+#
+########################################################################
+#
+#   - Edit this file, then use it as input to ${progname}.
+#
+#   - Configuration options
+#
+#       - DEVICE_NAME
+#
+#           The name of the switch or HCA device.  
+#           
+#           Here are some example best practice recommendations for a few device
+#           types:
+#
+#             Unibody switch:
+#
+#               RACK/LOWEST_RACK_UNIT/PORT
+#
+#
+#             Chassis switch -- treat each line card as a separate switch.  With
+#             InfiniBand (circa 2015), they are actually separate switches.
+#
+#               RACK/LOWEST_RACK_UNIT/LINE_CARD/PORT
+#
+#
+#             HCA card(s) in a node:
+#
+#               RACK/LOWEST_RACK_UNIT/HCA/PORT
+#
+#
+#       - TOTAL_PORTS
+#
+#           Total number of ports on the switch or HCA.
+#
+#
+#       - SPACE_DELIMITED_LIST_OF_USED_PORTS
+#
+#           List of ports already in use.  Order does not matter.  Leave blank
+#           if no ports are already in use.
+#
+#       - TIER
+#           Begin a stanza, one per network tier, with a list of switches in
+#           that tier.
+#           
+#           Tier stanzas are delimited by a blank line.  If you have a blank
+#           line in the middle of a stanza, that's where the stanza will
+#           actually end.
+#
+
+########################################################################
+#
+#   Template Example
+#
+########################################################################
+[tier1]
+#
+#   DEVICE_NAME TOTAL_PORTS SPACE_DELIMITED_LIST_OF_USED_PORTS
+#
+R01/U05/L1 18 1 2 3 4 5 6 7 8
+R01/U05/L2 18
+R01/U05/L3 18
+
+
+[tier2]
+#
+#   Format:
+#   DEVICE_NAME TOTAL_PORTS UPLINK_PORTS [STRIPED]
+#
+# Node with 2x dual-port adapters connected to tier1
+#   Resulting ports that get assigned in output:
+#       R02/U13/H1/1
+#       R02/U13/H1/2
+#       R02/U13/H2/1
+#       R02/U13/H2/2
+#
+R02/U13/H1 2 2 striped
+R02/U13/H2 2 2 striped
+#
+#
+# Node with only port 1 of a dual-port adapter connected to tier1 
+#   Resulting ports that get assigned in output:
+#       R02/U13/H1/1
+#
+R02/U13/H1 1 1
+#
+#
+# Node with only port 2 of a dual-port adapter connected to tier1
+#   Resulting ports that get assigned in output:
+#       R02/U13/H1/2
+#
+R02/U13/H1 2 1
+#
+#
+# 36port Leaf Switches in an iDataPlex rack
+#   Resulting ports that get assigned in output:
+#       R03/B/U8/25 - R03/B/U8/36
+#
+R03/B/U8 36 12
+R03/D/U8 36 12
+R03/D/U6 36 12
+#
+#
+# 36port Leaf Switch in standard rack
+#   Resulting ports that get assigned in output:
+#       R04/U40/19 - R04/U40/36
+#
+R05/U40 36 18
+
+
+EOF
+    close(FILE);
+
+    return 1;
+}
+
+
+sub print_output {
+
+    my $file;
+
+    if($output_file) {
+        $file = $output_file;
+    } else {
+        $file = get_tmp_file();
+    }
+    
+    open(FILE,">$file") or die("Coudn't open $file for writing");
+    
+        print FILE qq(#\n);
+        print FILE qq(# $progname v$version_number\n);
+        print FILE qq(#\n);
+        print FILE qq(#     Part of the "$pkgname" package\n);
+        print FILE qq(#\n);
+        print FILE qq(\n);
+    
+        foreach(@output) {
+            print FILE $_;
+        }
+        
+        if($create_template) {
+            print "Your $progname INPUT_TEMPLATE file can be found here:\n";
+            print "\n";
+            print "    $file\n";
+
+        } else {
+            print "Your label maker input file can be found here:\n";
+            print "\n";
+            print "    $file\n";
+        }
+        print "\n";
+    
+    close(FILE);
+    
+    #my $used_tier1_ports = keys %p2p_assignments;
+    #print "\n# Tier2 devices consumed $used_tier1_ports of $total_tier1_ports available tier1 ports.\n" if(defined $debug);
+
+    return 1;
+}
 
 #
 #   END Subroutines
