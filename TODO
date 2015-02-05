@@ -1,11 +1,3 @@
--- Add an option to p2p_label_maker_input_maker
-
-    --create-template
-
-        Creates a template that you can use as an example, and edit to
-        meet your needs.
-
-
 --
 /etc/rc.d/init.d/set_cpu_state
     set defaults to:
