@@ -54,7 +54,10 @@ elsif ( defined $create_template ) {
 
 if ( ! defined $in_file ) {
     usage();
-    print "\n  >> Try --input-file FILENAME\n\n";
+    print "\n";
+    print "  >> Try --input-file FILENAME\n";
+    print "      or --create-template\n";
+    print "\n";
     exit 1;
 }
 
