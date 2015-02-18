@@ -25,7 +25,7 @@ avx_base_freq=1.9
 
 
 # Change node count to hit your target perf
-node_count=1080
+node_count=1046
 
 # Prolly don't need to change these
 sockets=2       # Typical compute node
