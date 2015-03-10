@@ -20,10 +20,11 @@
 use strict;
 use Getopt::Long;
 use File::Basename;
+use Data::Dumper;
 
 my $progname = basename($0);
 my $pkgname = 'HPC Goodies';
-my $version_number = '0.4.5';
+my $version_number = '0.4.6';
 
 our @output;
 
@@ -107,9 +108,14 @@ my $comment = '^#';
 my $port_indicator = 'P';
 
 my %p2p_assignments;
+my %p2p_cable_counts;
+my %last_higher_tier_device_number_assigned;
 
 read_config_file();
-create_ordered_list_of_downlinks_by_tier();
+#    print Dumper($devices{'R3-U12-L'});
+#    print Dumper($devices{'R4-U11'}); 
+#    exit 7;
+#create_ordered_list_of_downlinks_by_tier();
 make_p2p_assignments();
 create_output();
 print_output();
@@ -118,16 +124,109 @@ exit 0;
 
 
 
-
 sub make_p2p_assignments {
+
     foreach my $tier (reverse sort keys %{$devices{tier}}) {
-        foreach my $label ( sort keys %{$devices{tier}{$tier}{label}} ) {
-            #print "DEBUG: Tier $tier -> $label\n" if($debug);
-            assign_uplink_targets($label);
+        foreach my $lower_tier_label ( sort keys %{$devices{tier}{$tier}{label}} ) {
+
+            next   unless(   $devices{$lower_tier_label}{free_uplinks}  );
+            while( scalar( @{$devices{$lower_tier_label}{free_uplinks}} ) > 0 ) {
+
+                my $port = shift @{$devices{$lower_tier_label}{free_uplinks}};
+                my ($higher_tier_label, $higher_tier_port) = get_higher_tier_target_port($lower_tier_label, $port);
+
+                my $lower_tier_port_label = "$lower_tier_label-$port_indicator$port";
+                my $higher_tier_port_label = "$higher_tier_label-$port_indicator$higher_tier_port";
+
+                $devices{$lower_tier_label}{uplink_port_assignments}{$port}                 = $higher_tier_port_label;
+                $devices{$higher_tier_label,}{downlink_port_assignments}{$higher_tier_port} = $lower_tier_port_label;
+
+                my $cable_length = choose_cable_length($lower_tier_label, $higher_tier_label);
+
+                $p2p_assignments{$lower_tier_port_label}{port1_label} = $lower_tier_port_label;
+                $p2p_assignments{$lower_tier_port_label}{port2_label} = $higher_tier_port_label;
+                $p2p_assignments{$lower_tier_port_label}{cable_length} = $cable_length;
+                $p2p_cable_counts{$cable_length}++;
+
+                print "$cable_length uplink from $lower_tier_port_label -> $higher_tier_port_label\n" if($verbose);
+            } 
         }
     }
 
     return 1;
+}
+
+
+sub get_higher_tier_target_port {
+
+    my $lower_tier_label    = shift;
+    my $lower_tier_port     = shift;
+
+    my $higher_tier = $devices{$lower_tier_label}{tier} - 1;
+
+    my $side;
+    my $other_side;
+    if($devices{$lower_tier_label}{extra_id}) {    # must be a 1/2U node -- which side is it on?
+        if($devices{$lower_tier_label}{extra_id} eq 'L') {
+            $side = 'low';
+            $other_side = 'high';
+        } else {
+            $side = 'high';
+            $other_side = 'low';
+        }
+    } else {
+        my $center_port_low = $devices{$lower_tier_label}{total_ports} / 2;    # E.g.: 18 on a 36port switch
+        if($lower_tier_port > $center_port_low) {
+            $side = 'high';
+            $other_side = 'low';
+        } else {
+            $side = 'low';
+            $other_side = 'high';
+        }
+    }
+
+#print "Dev count tier $higher_tier: $devices{tier}{$higher_tier}{downlink_device_count}\n";
+#foreach (sort numerically keys %{$devices{tier}{$higher_tier}{downlink_devices}} ) {
+#    print "dev_num $_\n";
+#}
+#exit 7;
+
+    my $higher_tier_label;
+    my $higher_tier_port;
+
+    my $device_number = 1;
+    if($last_higher_tier_device_number_assigned{$lower_tier_label}) {
+        $device_number = $last_higher_tier_device_number_assigned{$lower_tier_label} + 1;
+    }
+
+    my $safety_count = 1;
+    until($safety_count == $devices{tier}{$higher_tier}{downlink_device_count}) {  # iterate until we've hit each higher tier device once
+
+        if($device_number > $devices{tier}{$higher_tier}{downlink_device_count}) {
+            $device_number = 1;
+        }
+
+#print "dev_num $device_number\n";
+        $higher_tier_label = $devices{tier}{$higher_tier}{downlink_devices}{$device_number};
+
+        # Prefer a port on the same side, but try the other side if not...
+        if( scalar(@{$devices{$higher_tier_label}{free_downlinks}{$side}}) > 0 ) {
+            $higher_tier_port = shift @{$devices{$higher_tier_label}{free_downlinks}{$side}};
+            $last_higher_tier_device_number_assigned{$lower_tier_label} = $device_number;
+#print "S: $side, \tL-H $lower_tier_port-$higher_tier_port, LHTDNA: $device_number,   LTL: $lower_tier_label, LTP: $lower_tier_port, HTL: $higher_tier_label, HTP $higher_tier_port, DN $device_number, SN $safety_count\n";
+            return ($higher_tier_label, $higher_tier_port);
+        } 
+        elsif( scalar(@{$devices{$higher_tier_label}{free_downlinks}{$other_side}}) > 0 ) {
+            $higher_tier_port = shift @{$devices{$higher_tier_label}{free_downlinks}{$other_side}};
+            $last_higher_tier_device_number_assigned{$lower_tier_label} = $device_number;
+#print "S: $side, \tL-H $lower_tier_port-$higher_tier_port, LHTDNA: $device_number,   LTL: $lower_tier_label, LTP: $lower_tier_port, HTL: $higher_tier_label, HTP $higher_tier_port, DN $device_number, SN $safety_count\n";
+            return ($higher_tier_label, $higher_tier_port);
+        }
+        $device_number++;
+        $safety_count++;
+    }
+
+    return undef;   # if we get here, something went wrong
 }
 
 
@@ -169,65 +268,77 @@ sub assign_uplink_targets {
 #
 # This subroutine is written from the perspective of the higher tier device
 #
-sub get_next_free_downlink_port {
+#sub get_next_free_downlink_port {
+#
+#    my $label   = shift;
+#    my $port    = shift;
+#
+#    my $side;
+#    if($devices{$label}{port}{$port}) {
+#        $side = $devices{$label}{port}{$port};
+#    } else {
+#        $side = 'low';
+#    }
+#
+#    my $tier = $devices{$label}{tier} - 1;
+#    my $downlink_port;
+#    if(scalar(@{$devices{downlink_port_labels}{$side}{$tier}}) > 0) {
+#        $downlink_port = shift @{$devices{downlink_port_labels}{$side}{$tier}};
+#
+#    } else {
+#
+#        if(scalar(@{$devices{downlink_port_labels}{low}{$tier}}) > 0) {
+#            $downlink_port = shift @{$devices{downlink_port_labels}{low}{$tier}};
+#
+#        } elsif(scalar(@{$devices{downlink_port_labels}{high}{$tier}}) > 0) {
+#            $downlink_port = shift @{$devices{downlink_port_labels}{high}{$tier}};
+#
+#        } else {
+#            return undef;
+#        }
+#    }
+#
+#    #print "DEBUG: Next downlink port for Tier $devices{$label}{tier} is $downlink_port\n" if($debug);
+#
+#    return $downlink_port;
+#
+#    ## XXX incorporate this later... -BEF-
+#    ##
+#    ## See if there's an uplink device in this tier in the same rack as the downlink device
+#    ##
+#    #my $downlink_target_rackname = $devices{$label}{rackname};
+#    #if( $devices{tier}{$tier}{rackname}{$downlink_target_rackname} ) {
+#    #    # yes!
+#    #    # prefer a device from here
+#    #} else {
+#    #    # no!
+#    #}
+#}
 
-    my $label   = shift;
-    my $port    = shift;
 
-    my $side;
-    if($devices{$label}{port}{$port}) {
-        $side = $devices{$label}{port}{$port};
-    } else {
-        $side = 'low';
-    }
+#sub get_next_free_uplink_port {
+#
+#    my $label = shift;
+#
+#    
+#
+#    return $port;
+    #return 1;
 
-    my $tier = $devices{$label}{tier} - 1;
-    my $downlink_port;
-    if(scalar(@{$devices{downlink_port_labels}{$side}{$tier}}) > 0) {
-        $downlink_port = shift @{$devices{downlink_port_labels}{$side}{$tier}};
-
-    } else {
-
-        if(scalar(@{$devices{downlink_port_labels}{low}{$tier}}) > 0) {
-            $downlink_port = shift @{$devices{downlink_port_labels}{low}{$tier}};
-
-        } elsif(scalar(@{$devices{downlink_port_labels}{high}{$tier}}) > 0) {
-            $downlink_port = shift @{$devices{downlink_port_labels}{high}{$tier}};
-
-        } else {
-            return undef;
-        }
-    }
-
-    #print "DEBUG: Next downlink port for Tier $devices{$label}{tier} is $downlink_port\n" if($debug);
-
-    return $downlink_port;
-
-    ## XXX incorporate this later... -BEF-
-    ##
-    ## See if there's an uplink device in this tier in the same rack as the downlink device
-    ##
-    #my $downlink_target_rackname = $devices{$label}{rackname};
-    #if( $devices{tier}{$tier}{rackname}{$downlink_target_rackname} ) {
-    #    # yes!
-    #    # prefer a device from here
-    #} else {
-    #    # no!
+    #my $port;
+    #if(scalar(@{$devices{$label}{free_uplinks}}) > 0) {
+    #    $port_label = shift @{$devices{$label}{free_uplinks}};
     #}
-}
+    #
+    #return $port_label;
 
-
-sub get_next_free_uplink_port {
-
-    my $label = shift;
-
-    my $port_label;
-    if(scalar(@{$devices{$label}{free_uplinks}}) > 0) {
-        $port_label = shift @{$devices{$label}{free_uplinks}};
-    }
-
-    return $port_label;
-}
+    #my $port_label;
+    #if(scalar(@{$devices{$label}{free_uplinks}}) > 0) {
+    #    $port_label = shift @{$devices{$label}{free_uplinks}};
+    #}
+    #
+    #return $port_label;
+#}
 
 
 sub read_config_file {
@@ -314,6 +425,7 @@ sub read_config_file {
         if( m/^\[cables\]/ ) {
     
             #print "DEBUG: $_" if($debug);
+            #XXX handle quantity
     
             my $row = 1;
     
@@ -385,7 +497,15 @@ sub read_config_file {
                     # Define each port as an object and give it a value that represents it's state
                     initialize_used_port_objects($label);
                     initialize_uplink_port_objects($label);
-                    initialize_downlink_port_objects($label);
+
+                    if($downlink_port_count > 0) {
+                        $devices{tier}{$tier}{downlink_device_count}++;
+                        my $device_number = $devices{tier}{$tier}{downlink_device_count};
+                        $devices{tier}{$tier}{downlink_devices}{$device_number} = $label;
+
+                        initialize_downlink_port_objects($label);
+                    }
+
                 }
                 $_ = shift @input;
             }
@@ -394,42 +514,51 @@ sub read_config_file {
 }
 
 
-sub create_ordered_list_of_downlinks_by_tier {
-
-    foreach my $tier ( sort keys %{$devices{tier}} ) {
-
-        my $downlink_ports_in_a_list = 0;
-
-        until( $downlink_ports_in_a_list == $devices{tier}{$tier}{downlink_port_count} ) {
-
-            foreach my $label (sort keys %{$devices{tier}{$tier}{label}}) {
-                #print "DEBUG: create_ordered_list_of_downlinks_by_tier(): label $label\n" if($debug and $tier == 2);
-
-                if( scalar(@{$devices{$label}{free_downlinks}{high}}) > 0 ) {
-
-                    my $port = shift @{$devices{$label}{free_downlinks}{high}};
-
-                    push @{$devices{downlink_port_labels}{high}{$tier}}, "$label-$port_indicator$port";
-                    #print "DEBUG: Tier $tier, downlink_port_label_high $label-$port\n" if($debug and $tier == 2);
-
-                    $downlink_ports_in_a_list++;
-                }
-
-                if( scalar(@{$devices{$label}{free_downlinks}{low}}) > 0 ) {
-
-                    my $port = shift @{$devices{$label}{free_downlinks}{low}};
-
-                    push @{$devices{downlink_port_labels}{low}{$tier}}, "$label-$port_indicator$port";
-                    #print "DEBUG: Tier $tier, downlink_port_label_low $label-$port\n" if($debug and $tier == 2);
-
-                    $downlink_ports_in_a_list++;
-                }
-            }
-            #print "DEBUG: Processed $downlink_ports_in_a_list tier $tier downlink ports out of $devices{tier}{$tier}{downlink_port_count}\n";
-        }
-        #print "DEBUG: create_ordered_list_of_downlinks_by_tier(): Tier $tier -- Processed $downlink_ports_in_a_list of $devices{tier}{$tier}{downlink_port_count} downlink ports\n";
-    }
-}
+#sub create_ordered_list_of_downlinks_by_tier {
+#return 1; #XXX
+#    foreach my $tier ( sort keys %{$devices{tier}} ) {
+#
+#        my $downlink_ports_in_a_list = 0;
+#
+#        until( $downlink_ports_in_a_list == $devices{tier}{$tier}{downlink_port_count} ) {
+#
+#            foreach my $label (sort keys %{$devices{tier}{$tier}{label}}) {
+#                #print "DEBUG: create_ordered_list_of_downlinks_by_tier(): label $label\n" if($debug and $tier == 2);
+#
+#                if( scalar(@{$devices{$label}{free_downlinks}{high}}) > 0 ) {
+#
+#                    my $port = shift @{$devices{$label}{free_downlinks}{high}};
+#
+#                   #push @{$devices{downlink_port_labels}{high}{$tier}}, "$label-$port_indicator$port";
+#                    #print "DEBUG: Tier $tier, downlink_port_label_high $label-$port\n" if($debug and $tier == 2);
+#
+#                    $downlink_ports_in_a_list++;
+#                }
+#
+#                if( scalar(@{$devices{$label}{free_downlinks}{low}}) > 0 ) {
+#
+#                    my $port = shift @{$devices{$label}{free_downlinks}{low}};
+#
+#                   #push @{$devices{downlink_port_labels}{low}{$tier}}, "$label-$port_indicator$port";
+#                    #print "DEBUG: Tier $tier, downlink_port_label_low $label-$port\n" if($debug and $tier == 2);
+#
+#                    $downlink_ports_in_a_list++;
+#                }
+#            }
+#            #print "DEBUG: Processed $downlink_ports_in_a_list tier $tier downlink ports out of $devices{tier}{$tier}{downlink_port_count}\n";
+#        }
+#        #print "DEBUG: create_ordered_list_of_downlinks_by_tier(): Tier $tier -- Processed $downlink_ports_in_a_list of $devices{tier}{$tier}{downlink_port_count} downlink ports\n";
+#    }
+#
+##    foreach my $tier ( sort keys %{$devices{tier}} ) {
+##        foreach my $port (@{$devices{downlink_port_labels}{high}{$tier}}) {
+##            print "DOWN HIGH $tier $port\n";
+##        }
+##        foreach my $port (@{$devices{downlink_port_labels}{low}{$tier}}) {
+##            print "DOWN LOW $tier $port\n";
+##        }
+##    }
+#}
 
 
 sub initialize_downlink_port_objects {
@@ -449,7 +578,7 @@ sub initialize_downlink_port_objects {
             my $port = $devices{$label}{total_ports};
             until( $chosen_ports_count == $devices{$label}{downlink_port_count} ) {
                 unless($devices{$label}{port}{$port}) {  # this exists if 'used'
-                    $devices{$label}{port}{$port} = 'high';
+                    $devices{$label}{port}{$port} = 'downlink';
                     push @{$devices{$label}{free_downlinks}{high}}, $port;
                     #print "DEBUG: $label $port\n" if($debug);
                     $chosen_ports_count++;
@@ -463,7 +592,7 @@ sub initialize_downlink_port_objects {
             my $port = 1;
             until( $chosen_ports_count == $devices{$label}{downlink_port_count} ) {
                 unless($devices{$label}{port}{$port}) {
-                    $devices{$label}{port}{$port} = 'low';
+                    $devices{$label}{port}{$port} = 'downlink';
                     push @{$devices{$label}{free_downlinks}{low}}, $port;
                     #print "DEBUG: $label $port\n" if($debug);
                     $chosen_ports_count++;
@@ -484,7 +613,7 @@ sub initialize_downlink_port_objects {
             $port = 1;
             until( $chosen_ports_count == $downlink_port_count_low_side ) {
                 unless($devices{$label}{port}{$port}) {
-                    $devices{$label}{port}{$port} = 'low';
+                    $devices{$label}{port}{$port} = 'downlink';
                     push @{$devices{$label}{free_downlinks}{low}}, $port;
                     #print "DEBUG: $label $port\n" if($debug);
                     $chosen_ports_count++;
@@ -497,7 +626,7 @@ sub initialize_downlink_port_objects {
             $port = $devices{$label}{total_ports};
             until( $chosen_ports_count == $downlink_port_count_high_side ) {
                 unless($devices{$label}{port}{$port}) {
-                    $devices{$label}{port}{$port} = 'high';
+                    $devices{$label}{port}{$port} = 'downlink';
                     push @{$devices{$label}{free_downlinks}{high}}, $port;
                     #print "DEBUG: $label $port\n" if($debug);
                     $chosen_ports_count++;
@@ -521,7 +650,7 @@ sub initialize_downlink_port_objects {
             $port = $center_port_high;
             until( $chosen_ports_count == $downlink_port_count_high_side ) {
                 unless($devices{$label}{port}{$port}) {
-                    $devices{$label}{port}{$port} = 'high';
+                    $devices{$label}{port}{$port} = 'downlink';
                     push @{$devices{$label}{free_downlinks}{high}}, $port;
                     #print "DEBUG: $label $port\n" if($debug);
                     $chosen_ports_count++;
@@ -534,7 +663,7 @@ sub initialize_downlink_port_objects {
             $port = $center_port_low;
             until( $chosen_ports_count == $downlink_port_count_low_side ) {
                 unless($devices{$label}{port}{$port}) {
-                    $devices{$label}{port}{$port} = 'low';
+                    $devices{$label}{port}{$port} = 'downlink';
                     push @{$devices{$label}{free_downlinks}{low}}, $port;
                     #print "DEBUG: $label $port\n" if($debug);
                     $chosen_ports_count++;
@@ -559,9 +688,8 @@ sub initialize_uplink_port_objects {
             my $port = $devices{$label}{total_ports};
             until( $chosen_ports_count == $devices{$label}{uplink_port_count} ) {
                 unless($devices{$label}{port}{$port}) {  # this exists if 'used'
-                    my $port_label = "$label-$port_indicator$port";
-                    $devices{$label}{port}{$port_label} = 'high';
-                    push @{$devices{$label}{free_uplinks}}, $port_label;
+                    $devices{$label}{port}{$port} = 'uplink';
+                    push @{$devices{$label}{free_uplinks}}, $port;
                     $chosen_ports_count++;
                 }
                 $port--;
@@ -573,9 +701,8 @@ sub initialize_uplink_port_objects {
             my $port = 1;
             until( $chosen_ports_count == $devices{$label}{uplink_port_count} ) {
                 unless($devices{$label}{port}{$port}) {
-                    my $port_label = "$label-$port_indicator$port";
-                    $devices{$label}{port}{$port_label} = 'low';
-                    push @{$devices{$label}{free_uplinks}}, $port_label;
+                    $devices{$label}{port}{$port} = 'uplink';
+                    push @{$devices{$label}{free_uplinks}}, $port;
                     $chosen_ports_count++;
                 }
                 $port++;
@@ -594,9 +721,8 @@ sub initialize_uplink_port_objects {
             $port = 1;
             until( $chosen_ports_count == $uplink_port_count_low_side ) {
                 unless($devices{$label}{port}{$port}) {
-                    my $port_label = "$label-$port_indicator$port";
-                    $devices{$label}{port}{$port_label} = 'low';
-                    push @{$devices{$label}{free_uplinks}}, $port_label;
+                    $devices{$label}{port}{$port} = 'uplink';
+                    push @{$devices{$label}{free_uplinks}}, $port;
                     $chosen_ports_count++;
                 }
                 $port++;
@@ -607,9 +733,8 @@ sub initialize_uplink_port_objects {
             $port = $devices{$label}{total_ports};
             until( $chosen_ports_count == $uplink_port_count_high_side ) {
                 unless($devices{$label}{port}{$port}) {
-                    my $port_label = "$label-$port_indicator$port";
-                    $devices{$label}{port}{$port_label} = 'high';
-                    push @{$devices{$label}{free_uplinks}}, $port_label;
+                    $devices{$label}{port}{$port} = 'uplink';
+                    push @{$devices{$label}{free_uplinks}}, $port;
                     $chosen_ports_count++;
                 }
                 $port--;
@@ -631,9 +756,8 @@ sub initialize_uplink_port_objects {
             $port = $center_port_high;
             until( $chosen_ports_count == $uplink_port_count_high_side ) {
                 unless($devices{$label}{port}{$port}) {
-                    my $port_label = "$label-$port_indicator$port";
-                    $devices{$label}{port}{$port_label} = 'high';
-                    push @{$devices{$label}{free_uplinks}}, $port_label;
+                    $devices{$label}{port}{$port} = 'uplink';
+                    push @{$devices{$label}{free_uplinks}}, $port;
                     $chosen_ports_count++;
                 }
                 $port++;
@@ -644,9 +768,8 @@ sub initialize_uplink_port_objects {
             $port = $center_port_low;
             until( $chosen_ports_count == $uplink_port_count_low_side ) {
                 unless($devices{$label}{port}{$port}) {
-                    my $port_label = "$label-$port_indicator$port";
-                    $devices{$label}{port}{$port_label} = 'low';
-                    push @{$devices{$label}{free_uplinks}}, $port_label;
+                    $devices{$label}{port}{$port} = 'uplink';
+                    push @{$devices{$label}{free_uplinks}}, $port;
                     $chosen_ports_count++;
                 }
                 $port--;
@@ -671,97 +794,6 @@ sub initialize_used_port_objects {
     return 1;
 }
 
-
-#my %tier1_ports;
-#my $total_tier1_ports = 0;
-#foreach (@tier1s) {
-#
-#    print ">> tier1 input $_\n" if(defined $debug);
-#
-#    my ($name, $downlink_ports, @used_ports) = split(/\s+/);
-#    print ">> name $name, downlink_ports $downlink_ports\n" if(defined $debug);
-#
-#    my %used_ports;
-#    foreach my $port ( @used_ports ) {
-#        print ">> used_port $port\n" if(defined $debug);
-#        $used_ports{$port} = 1;
-#    }
-#
-#    $total_tier1_ports += $downlink_ports;
-#
-#    my $port = 0;
-#    until ($port == $downlink_ports) {
-#
-#        $port++;
-#
-#        # 
-#        # Simply skip over already used ports so they're not available for
-#        # mapping.
-#        #
-#        next if( defined $used_ports{$port} );
-#
-#        # Remember name of switch for striping purposes if needed
-#        my $full_port_name = "$name$delimiter$port";
-#        $tier1_ports{$full_port_name} = $name;
-#        print ">>> tier1 port $full_port_name\n" if(defined $debug);
-#    }
-#}
-#
-#my @tier2_ports;
-#my @tier2_ports_to_be_striped;
-#my $total_tier2_uplinks;
-#foreach (@tier2s) {
-#
-#    print ">> tier2 input $_\n" if(defined $debug);
-#
-#    my ($name, $total_ports, $uplink_ports, $striped) = split(/\s+/);
-#
-#    $total_tier2_uplinks += $uplink_ports;
-#
-#    #
-#    # Starting port should be $uplink_ports less than $total_ports so
-#    # that we start at the top of the switch (by convention) -BEF-
-#    #
-#    my $port = $total_ports - $uplink_ports;
-#    until ($port == $total_ports) {
-#
-#        $port++;
-#
-#        my $full_port_name = "$name$delimiter$port";
-#        print ">>> tier2 port $full_port_name\n" if(defined $debug);
-#
-#        if(defined $striped) {
-#            push @tier2_ports_to_be_striped, $full_port_name;
-#        } else {
-#            push @tier2_ports, $full_port_name;
-#        }
-#    }
-#}
-#
-#my $tier1_count = scalar(@tier1s);
-#my $tier2_count = scalar(@tier2s);
-#
-#my $switch_name;
-#my $last_switch_name = "";
-#
-#assign_p2p_for_stripey_tier2_devices();
-#assign_p2p_for_non_stripey_tier2_devices();
-#create_output();
-#print_output();
-
-#
-#   Uncomment for debug:
-#
-# print "cold_isle              $dimensions{cold_isle}               \n";
-# print "hot_isle               $dimensions{hot_isle}                \n";
-# print "one_rack_unit          $dimensions{rack_unit}           \n";
-# print "cable_slack_to_port    $dimensions{cable_slack_to_port}     \n";
-# print "overhead_buffer        $dimensions{overhead_buffer}   \n";
-# print "under_floor_buffer     $dimensions{under_floor_buffer}\n";
-# 
-# foreach my $rack (sort keys %{$floor_plan{racks}} ) {
-#     print "$rack  row $floor_plan{racks}{$rack}{row}, column $floor_plan{racks}{$rack}{column}\n";    
-# }
 
 exit 0;
 
@@ -1208,8 +1240,13 @@ sub print_output {
             #print "\n";
             #print "Using $total_tier1_ports available ports across $tier1_count tier1 switches\n";
             #print "and $total_tier2_uplinks uplink ports across $tier2_count tier2 devices\n";
-            #print "\n";
-
+            print "\n";
+            print "Using the following cable counts:\n";
+            print "\n";
+            foreach my $cable_type (sort keys %p2p_cable_counts) {
+                print "    $cable_type:  $p2p_cable_counts{$cable_type}\n";
+            }
+            print "\n";
             print "Your label maker input file can be found here in .csv file format:\n";
             print "\n";
             print "    $file\n";
@@ -1263,11 +1300,14 @@ sub is_valid_number {
 
 sub choose_cable_length {
 
-    my $port1_label = shift;
-    my $port2_label = shift;
+    my $device1 = shift;
+    my $device2 = shift;
 
-    my ($rack1, $ru1) = split(/$delimiter/, $port1_label);
-    my ($rack2, $ru2) = split(/$delimiter/, $port2_label);
+    my $rack1 = $devices{$device1}{rackname};
+    my $rack2 = $devices{$device2}{rackname};
+
+    my $ru1 = $devices{$device1}{rackunit};
+    my $ru2 = $devices{$device2}{rackunit};
 
     # Remove any alpha info
     $ru1 =~ s/[a-z]//gi;
@@ -1316,15 +1356,15 @@ sub choose_cable_length {
     # vertical distance within rack
     my $vertical_distance;
     if($rack1 eq $rack2) {
-        print "Same Rack\n" if($debug);
+        #print "Same Rack\n" if($debug);
         $vertical_distance += abs( ($ru1 - $ru2) * $dimensions{rack_unit} );
     } 
     elsif($cabling eq 'above') {
-        print "Other Rack, above\n" if($debug);
+        #print "Other Rack, above\n" if($debug);
         $vertical_distance += (($dimensions{rack_height_in_ru} - $ru1) + ($dimensions{rack_height_in_ru} - $ru2)) * $dimensions{rack_unit};
     }
     elsif($cabling eq 'below') {
-        print "Other Rack, below\n" if($debug);
+        #print "Other Rack, below\n" if($debug);
         $vertical_distance += ($ru1 + $ru2) * $dimensions{rack_unit};
     }
     $length += $vertical_distance;
@@ -1336,8 +1376,8 @@ sub choose_cable_length {
         foreach my $cable (sort numerically keys %{$cables{copper}}) {
 
             if($cable > $length) {
-                print "$port1_label to $port2_label: Cable $cable is longer than $length\n" if($debug);
                 $cable_length = "${cable}m";
+                #print "$device1 to $device2: Cable $cable is longer than $length\n" if($debug);
                 last;
             }
         }
@@ -1349,6 +1389,7 @@ sub choose_cable_length {
             foreach my $cable (sort numerically keys %{$cables{fiber}}) {
                 if($cable > $length) {
                     $cable_length = "${cable}m";
+                    #print "$device1 to $device2: Cable $cable is longer than $length\n" if($debug);
                     last;
                 }
             }
@@ -1358,13 +1399,14 @@ sub choose_cable_length {
         foreach my $cable (sort numerically keys %{$cables{fiber}}) {
             if($cable > $length) {
                 $cable_length = "${cable}m";
+                #print "$device1 to $device2: Cable $cable is longer than $length\n" if($debug);
                 last;
             }
         }
     }
 
     if($debug) {
-        print ">> Ports: $port1_label <-> $port2_label,\tRacks: $rack1 $rack2,\tRackU: $ru1 $ru2,\tLength: $length\tCable Length: $cable_length\n";
+        print "$device1 to $device2 -- Racks: $rack1 $rack2,\tRackU: $ru1 $ru2,\tLength: $length,\tCable Length: $cable_length\n";
     }
 
     if($cable_length) {
@@ -1381,13 +1423,11 @@ sub create_output {
 
     my $line;
     my $column = 1;
-    foreach my $p2p (reverse schwartzian_sort (keys %p2p_assignments) ) {
+    foreach my $lower_tier_label (reverse sort (keys %p2p_assignments) ) {
     
-        my $port1_label = $p2p_assignments{$p2p}{port1_label};
-        my $port2_label = $p2p_assignments{$p2p}{port2_label};
-        my $cable_length = $p2p_assignments{$p2p}{cable_length};
-
-        print "$cable_length $port1_label $port2_label\n" if($verbose);
+        my $port1_label = $p2p_assignments{$lower_tier_label}{port1_label};
+        my $port2_label = $p2p_assignments{$lower_tier_label}{port2_label};
+        my $cable_length = $p2p_assignments{$lower_tier_label}{cable_length};
 
         $line .= qq("$cable_length\n$port1_label\n$port2_label");
 
