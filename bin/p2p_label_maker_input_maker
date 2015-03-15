@@ -24,7 +24,7 @@ use Data::Dumper;
 
 my $progname = basename($0);
 my $pkgname = 'HPC Goodies';
-my $version_number = '0.4.6';
+my $version_number = '0.4.7';
 
 our @output;
 
@@ -1036,7 +1036,7 @@ sub create_template_file {
 cold_isle               3
 hot_isle                2
 one_rack_unit           .04445
-cable_slack_to_port     .25
+cable_slack_to_port     .2
 overhead_buffer         3.1691
 under_floor_buffer      3.257999
 rack_width              .6
@@ -1253,7 +1253,7 @@ sub print_output {
             print "\n";
             print "You can use this command to it in libreoffice right now:\n";
             print "\n";
-            print "    libreoffice --calc $file\n";
+            print qq(    libreoffice --calc "$file"\n);
             print "\n";
         }
         print "\n";
@@ -1322,8 +1322,10 @@ sub choose_cable_length {
     # represents relative distance -- multiply by 1 to make positive.  A zero
     # is OK too (same rack).
     #
-    my $columns = ($floor_plan{racks}{$rack1}{column} - $floor_plan{racks}{$rack2}{column}) * 1;
+    my $columns = ($floor_plan{racks}{$rack1}{column} - $floor_plan{racks}{$rack2}{column});
+    $columns = abs($columns);
     $length = ($columns * $dimensions{rack_width});
+    #print "DEBUG: choose_cable_length(): columns $columns\n" if($debug);
 
     # above/below
     if($rack1 ne $rack2) {
@@ -1368,6 +1370,7 @@ sub choose_cable_length {
         $vertical_distance += ($ru1 + $ru2) * $dimensions{rack_unit};
     }
     $length += $vertical_distance;
+    #print "DEBUG: vertical_distance $vertical_distance\n" if($debug);
 
     # Find the best cable for the job
     my $cable_length;
