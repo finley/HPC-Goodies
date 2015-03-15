@@ -1406,7 +1406,8 @@ sub choose_cable_length {
     }
 
     if($debug) {
-        print "$device1 to $device2 -- Racks: $rack1 $rack2,\tRackU: $ru1 $ru2,\tLength: $length,\tCable Length: $cable_length\n";
+        my $rounded_length = sprintf "%.2f", $length;
+        print "Device: $device1 to $device2,\tLength: $rounded_length,\tCable Length: $cable_length\n";
     }
 
     if($cable_length) {
