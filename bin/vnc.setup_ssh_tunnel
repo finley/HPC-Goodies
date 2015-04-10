@@ -1,0 +1,82 @@
+#
+# vncturbo.port_forwarding_via_ssh
+#
+# 2012.07.06 Brian Elliott Finley
+# - created
+# 2015.04.10 Brian Elliott Finley
+# - verbiage tweaks
+#
+
+#set -x
+
+#VNC=/opt/TurboVNC/bin/vncserver
+VNC=vncserver
+
+GATEWAY_HOST=$1
+
+if [ -z "$GATEWAY_HOST" ]; then
+
+  PROGNAME=$(basename $0)
+
+cat << EOF
+
+  Usage:
+  
+    $PROGNAME GATEWAY_HOST [TARGET_HOST]
+
+
+    GATEWAY_HOST (required) is the host that has access to the port you
+    want to reach.
+
+    TARGET_HOST is the host you want to port forward _to_ from the
+    GATEWAY_HOST.  Default is "localhost" (as in the GATEWAY_HOST is
+    also the machine running VNC).
+    
+    For example, if you want to access the port of a process running on
+    the GATEWAY_HOST itself, then the TARGET_HOST would be 'localhost'
+    (or $GATEWAY_HOST).  Because, once SSH hits the GATEWAY_HOST, it can
+    then forward traffic on to any host it can reach.  In this case, it
+    just happens to be forwarding on to itself -- and it can reach
+    itself via the hostname localhost, and presumably by it's proper
+    hostname too.
+    
+    For alternate example, if you want to access the port of a process
+    running on some other host, then the TARGET_HOST would be the name
+    of that other host.  This is generally done if the "other" host is
+    not directly reachable from your desktop, but is reachable from the
+    GATEWAY_HOST.
+
+    Example:  Connect to a Viz node inside a cluster
+
+        $PROGNAME LOGIN_NODE VIZ_NODE
+
+    Once connected, this program will tell you where to point your VNC
+    client to make the VNC connection.
+
+    Have fun!
+
+
+EOF
+  exit 1
+fi
+
+
+if [ -z "$TARGET_HOST" ]; then
+  TARGET_HOST=localhost
+fi
+
+#
+# Now we're going to start vncserver
+ssh $GATEWAY_HOST $VNC
+PORT=$(ssh $GATEWAY_HOST /usr/sbin/lsof -i | grep Xvnc | grep -w 3u | perl -pi -e 's/.*:(\d+)\D+/$1\n/' | tail -n 1)
+
+cat << EOF
+
+  Now you'll need to authenticate at the prompt below.  After that,
+  simply start your VNC viewer program, and point it at
+  "localhost::$PORT", and off you go!
+
+EOF
+
+ssh -N -L ${PORT}:${TARGET_HOST}:${PORT} $GATEWAY_HOST
+
