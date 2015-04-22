@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 
+#XXX add option to iterate over higher devices, even if each lower tier device only has one port to uplink
+
 #
 # 2012.04.12  Brian Finley <bfinley@lenovo.com>
 # - created to generate p2p labels for UChicago install by Rochester CSC
@@ -137,13 +139,17 @@ exit 0;
 sub make_p2p_assignments {
 
     foreach my $tier (reverse sort keys %{$devices{tier}}) {
-        foreach my $lower_tier_label ( sort keys %{$devices{tier}{$tier}{label}} ) {
+        foreach my $lower_tier_label ( schwartzian_sort (keys %{$devices{tier}{$tier}{label}}) ) {
 
             next   unless(   $devices{$lower_tier_label}{free_uplinks}  );
-            while( scalar( @{$devices{$lower_tier_label}{free_uplinks}} ) > 0 ) {
+            while( scalar @{$devices{$lower_tier_label}{free_uplinks}} > 0 ) {
+
+                print "\nDEBUG: lower_tier_label $lower_tier_label\n" if($debug);
 
                 my $port = shift @{$devices{$lower_tier_label}{free_uplinks}};
                 my ($higher_tier_label, $higher_tier_port) = get_higher_tier_target_port($lower_tier_label, $port);
+
+                print "DEBUG: higher_tier_label $higher_tier_label\n" if($debug);
 
                 my $lower_tier_port_label = "$lower_tier_label-$port_indicator$port";
                 my $higher_tier_port_label = "$higher_tier_label-$port_indicator$higher_tier_port";
@@ -205,12 +211,6 @@ sub get_higher_tier_target_port {
         }
     }
 
-#print "Dev count tier $higher_tier: $devices{tier}{$higher_tier}{downlink_device_count}\n";
-#foreach (sort numerically keys %{$devices{tier}{$higher_tier}{downlink_devices}} ) {
-#    print "dev_num $_\n";
-#}
-#exit 7;
-
     my $higher_tier_label;
     my $higher_tier_port;
 
@@ -218,35 +218,41 @@ sub get_higher_tier_target_port {
     if($last_higher_tier_device_number_assigned{$lower_tier_label}) {
         $device_number = $last_higher_tier_device_number_assigned{$lower_tier_label} + 1;
     }
+    elsif($last_higher_tier_device_number_assigned{'to-any-device'}) {
+        $device_number = $last_higher_tier_device_number_assigned{'to-any-device'} + 1;
+    }
 
     my $safety_count = 1;
-    until($safety_count == $devices{tier}{$higher_tier}{downlink_device_count}) {  # iterate until we've hit each higher tier device once
-
+    until($safety_count == $devices{tier}{$higher_tier}{downlink_device_count}) {  
+        #
+        # iterate until we've hit each higher tier device once
+        #
         if($device_number > $devices{tier}{$higher_tier}{downlink_device_count}) {
             $device_number = 1;
         }
 
-#print "dev_num $device_number\n";
         $higher_tier_label = $devices{tier}{$higher_tier}{downlink_devices}{$device_number};
 
         # Prefer a port on the same side, but try the other side if not...
         if( scalar(@{$devices{$higher_tier_label}{free_downlinks}{$side}}) > 0 ) {
             $higher_tier_port = shift @{$devices{$higher_tier_label}{free_downlinks}{$side}};
             $last_higher_tier_device_number_assigned{$lower_tier_label} = $device_number;
-#print "S: $side, \tL-H $lower_tier_port-$higher_tier_port, LHTDNA: $device_number,   LTL: $lower_tier_label, LTP: $lower_tier_port, HTL: $higher_tier_label, HTP $higher_tier_port, DN $device_number, SN $safety_count\n";
+            $last_higher_tier_device_number_assigned{'to-any-device'} = $device_number;
             return ($higher_tier_label, $higher_tier_port);
         } 
         elsif( scalar(@{$devices{$higher_tier_label}{free_downlinks}{$other_side}}) > 0 ) {
             $higher_tier_port = shift @{$devices{$higher_tier_label}{free_downlinks}{$other_side}};
             $last_higher_tier_device_number_assigned{$lower_tier_label} = $device_number;
-#print "S: $side, \tL-H $lower_tier_port-$higher_tier_port, LHTDNA: $device_number,   LTL: $lower_tier_label, LTP: $lower_tier_port, HTL: $higher_tier_label, HTP $higher_tier_port, DN $device_number, SN $safety_count\n";
+            $last_higher_tier_device_number_assigned{'to-any-device'} = $device_number;
             return ($higher_tier_label, $higher_tier_port);
         }
         $device_number++;
         $safety_count++;
     }
 
-    return undef;   # if we get here, something went wrong
+    # if we get here, something went wrong
+    print "ERROR in get_higher_tier_target_port()\n";
+    exit 1;   
 }
 
 
@@ -939,6 +945,8 @@ sub user_is_root {
 #       number10
 #       number20
 #       number100
+#
+# Usage:  schwartzian_sort (@array)
 #
 sub schwartzian_sort {
     return map { $_->[0] }
