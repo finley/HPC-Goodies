@@ -25,6 +25,7 @@ use Data::Dumper;
 my $progname = basename($0);
 my $pkgname = 'HPC Goodies';
 my $version_number = '0.4.7';
+my $pkg_url = 'https://github.com/finley/hpc-goodies';
 
 our @output;
 
@@ -50,12 +51,21 @@ elsif ( defined $version ) {
     version();
     exit 0;
 }
+elsif ( $create_template and $conf ) {
+    usage();
+    print "\n";
+    print "  >> Try --create-template\n";
+    print "      or --config\n";
+    print "     but not both. ;-)\n";
+    print "\n";
+    exit 1;
+}
 elsif ( defined $create_template ) {
     create_template_file($output_file);
     print_output();
     exit 0;
 }
-elsif ( defined $cabling ) {
+elsif ( $cabling ) {
 
     $cabling = lc $cabling;
 
@@ -89,9 +99,9 @@ my %dimensions;
 $dimensions{cold_isle}           = 3;           # meters
 $dimensions{hot_isle}            = 2;           # meters
 $dimensions{rack_unit}           = .04445;      # meters
-$dimensions{cable_slack_to_port} = .25;         # meters
-$dimensions{overhead_buffer}     = 3.7691;      # meters
-$dimensions{under_floor_buffer}  = 3.857999;    # meters
+$dimensions{cable_slack_to_port} = .2;          # meters
+$dimensions{overhead_buffer}     = 3.1691;      # meters
+$dimensions{under_floor_buffer}  = 3.257999;    # meters
 $dimensions{rack_width}          = .6;          # 1 floor tile  in meters
 $dimensions{rack_depth}          = 1.2;         # 2 floor tiles in meters
 $dimensions{rack_height_in_ru}   = 42;          # height in rack units
@@ -141,14 +151,24 @@ sub make_p2p_assignments {
                 $devices{$lower_tier_label}{uplink_port_assignments}{$port}                 = $higher_tier_port_label;
                 $devices{$higher_tier_label,}{downlink_port_assignments}{$higher_tier_port} = $lower_tier_port_label;
 
-                my $cable_length = choose_cable_length($lower_tier_label, $higher_tier_label);
-
                 $p2p_assignments{$lower_tier_port_label}{port1_label} = $lower_tier_port_label;
                 $p2p_assignments{$lower_tier_port_label}{port2_label} = $higher_tier_port_label;
-                $p2p_assignments{$lower_tier_port_label}{cable_length} = $cable_length;
-                $p2p_cable_counts{$cable_length}++;
 
-                print "$cable_length uplink from $lower_tier_port_label -> $higher_tier_port_label\n" if($verbose);
+                if($cabling) {
+
+                    my $cable_length = choose_cable_length($lower_tier_label, $higher_tier_label);
+                    $p2p_assignments{$lower_tier_port_label}{cable_length} = $cable_length;
+                    print "$cable_length uplink from $lower_tier_port_label -> $higher_tier_port_label\n" if($verbose);
+
+                    $p2p_cable_counts{$cable_length}++;
+
+                } else {
+
+                    print "Uplink from $lower_tier_port_label -> $higher_tier_port_label\n" if($verbose);
+
+                    $p2p_cable_counts{Unassigned}++;
+                }
+
             } 
         }
     }
@@ -424,17 +444,41 @@ sub read_config_file {
     
         if( m/^\[cables\]/ ) {
     
-            #print "DEBUG: $_" if($debug);
-            #XXX handle quantity
-    
             my $row = 1;
     
             $_ = shift @input;
             until( m/$stanza_terminator/ ) {
                 if(! m/^#/) {
                     chomp;
-                    my ($type, $length) = split;
-                    $cables{$type}{$length} = $length;
+                    my ($type, $length, $quantity) = split;
+
+                    if( $type !~ m/^(copper|fiber)$/ ) {
+                        print "\n";
+                        print "ERROR: [cables] -> Invalid cable type specified in config file:\n";
+                        print "\n";
+                        print "  $_\n";
+                        print "\n";
+
+                        exit 1;
+
+                    } elsif( ! is_valid_number($length) ) {
+                        print "\n";
+                        print "ERROR: [cables] -> Invalid cable length specified in config file:\n";
+                        print "\n";
+                        print "  $_\n";
+                        print "\n";
+
+                        exit 1;
+                    }
+
+                    if( ! is_valid_number($quantity) ) {
+                        $quantity = 1000000000;
+                        print "[cables] -> Quantity of available ${length}m $type cables not specified -- setting to default.\n" if($verbose or $debug);
+                    }
+
+                    print "[cables] -> Quantity of available ${length}m $type cables is set to $quantity\n" if($verbose or $debug);
+
+                    $cables{$type}{$length} = $quantity;
                 }
                 $_ = shift @input;
             }
@@ -456,14 +500,13 @@ sub read_config_file {
                     s/'//g;
                     s/(\s+,|,\s+|\s+$)/,/g;
     
-                    # HOSTNAME, TIER, RACKNAME, RACK_UNIT, EXTRA_ID, TOTAL_PORTS, UPLINK_PORTS, USED_PORTS_LIST, STRIPE, LAYOUT
-                    my ($hostname, $tier, $rackname, $rackunit, $extra_id, $total_ports, $uplink_port_count, $used_ports_list, $stripe, $layout) = split(/,/);
+                    #    HOSTNAME, TIER,   RACKNAME, RACK_UNIT, EXTRA_ID, TOTAL_PORTS,    UPLINK_PORTS,       USED_PORTS_LIST, LAYOUT
+                    my ($hostname, $tier, $rackname, $rackunit, $extra_id, $total_ports, $uplink_port_count, $used_ports_list, $layout) = split(/,/);
     
                     $uplink_port_count = 0      unless($uplink_port_count =~ m/\d+/);
-                    $stripe = 'yes'             unless($stripe =~ m/(yes|no)/i);
-                    $layout = 'high-to-low'     unless($layout =~ m/(high-to-low|low-to-high|inside-out|outside-in)/i);
-                    $extra_id = undef           unless($extra_id =~ m/\S/);
-                    $used_ports_list = undef    unless($used_ports_list =~ m/\d/);
+                    $layout = 'high-to-low'     unless($layout and $layout =~ m/(high-to-low|low-to-high|inside-out|outside-in)/i);
+                    $extra_id = undef           unless($extra_id and $extra_id =~ m/\S/);
+                    $used_ports_list = undef    unless($used_ports_list and $used_ports_list =~ m/\d/);
     
                     # Build name of device to be used on the label
                     my $label  = "$rackname-U$rackunit";
@@ -491,7 +534,6 @@ sub read_config_file {
                     $devices{$label}{downlink_port_count}   = $downlink_port_count;
                     $devices{tier}{$tier}{downlink_port_count} += $downlink_port_count;
                     $devices{$label}{used_ports_list}       = $used_ports_list if($used_ports_list);
-                    $devices{$label}{stripe}                = $stripe;
                     $devices{$label}{layout}                = $layout;
     
                     # Define each port as an object and give it a value that represents it's state
@@ -514,56 +556,13 @@ sub read_config_file {
 }
 
 
-#sub create_ordered_list_of_downlinks_by_tier {
-#return 1; #XXX
-#    foreach my $tier ( sort keys %{$devices{tier}} ) {
-#
-#        my $downlink_ports_in_a_list = 0;
-#
-#        until( $downlink_ports_in_a_list == $devices{tier}{$tier}{downlink_port_count} ) {
-#
-#            foreach my $label (sort keys %{$devices{tier}{$tier}{label}}) {
-#                #print "DEBUG: create_ordered_list_of_downlinks_by_tier(): label $label\n" if($debug and $tier == 2);
-#
-#                if( scalar(@{$devices{$label}{free_downlinks}{high}}) > 0 ) {
-#
-#                    my $port = shift @{$devices{$label}{free_downlinks}{high}};
-#
-#                   #push @{$devices{downlink_port_labels}{high}{$tier}}, "$label-$port_indicator$port";
-#                    #print "DEBUG: Tier $tier, downlink_port_label_high $label-$port\n" if($debug and $tier == 2);
-#
-#                    $downlink_ports_in_a_list++;
-#                }
-#
-#                if( scalar(@{$devices{$label}{free_downlinks}{low}}) > 0 ) {
-#
-#                    my $port = shift @{$devices{$label}{free_downlinks}{low}};
-#
-#                   #push @{$devices{downlink_port_labels}{low}{$tier}}, "$label-$port_indicator$port";
-#                    #print "DEBUG: Tier $tier, downlink_port_label_low $label-$port\n" if($debug and $tier == 2);
-#
-#                    $downlink_ports_in_a_list++;
-#                }
-#            }
-#            #print "DEBUG: Processed $downlink_ports_in_a_list tier $tier downlink ports out of $devices{tier}{$tier}{downlink_port_count}\n";
-#        }
-#        #print "DEBUG: create_ordered_list_of_downlinks_by_tier(): Tier $tier -- Processed $downlink_ports_in_a_list of $devices{tier}{$tier}{downlink_port_count} downlink ports\n";
-#    }
-#
-##    foreach my $tier ( sort keys %{$devices{tier}} ) {
-##        foreach my $port (@{$devices{downlink_port_labels}{high}{$tier}}) {
-##            print "DOWN HIGH $tier $port\n";
-##        }
-##        foreach my $port (@{$devices{downlink_port_labels}{low}{$tier}}) {
-##            print "DOWN LOW $tier $port\n";
-##        }
-##    }
-#}
-
-
 sub initialize_downlink_port_objects {
 
     my $label = shift;
+
+    # Initialize array references so scalar tests don't fail
+    @{$devices{$label}{free_downlinks}{high}} = ();
+    @{$devices{$label}{free_downlinks}{low}}  = ();
 
     if($devices{$label}{downlink_port_count} > 0) {
 
@@ -680,6 +679,9 @@ sub initialize_downlink_port_objects {
 sub initialize_uplink_port_objects {
 
     my $label = shift;
+
+    # Initialize array references so scalar tests don't fail
+    @{$devices{$label}{free_uplinks}} = ();
 
     if($devices{$label}{uplink_port_count} > 0) {
 
@@ -806,8 +808,8 @@ exit 0;
 sub version {
     print qq(\n);
     print qq($progname v$version_number\n);
-    print qq(\n);
-    print qq(    Part of the "$pkgname" package\n);
+    print qq(Part of the "$pkgname" package\n);
+    print qq($pkg_url\n);
     print qq(\n);
 
     return 1;
@@ -852,14 +854,12 @@ Usage:  $progname --config-file FILE [OPTION...]
         If specified, cable lengths are calculated based on the information
         provided in the [floor_plan] stanza in the config file.
 
-        LIMITATIONS:
-            - Currently assumes one use devices.  So for switch chassis, name
-              each leaf switch separately:
+        NOTE:  For chassis switches, name each leaf module separately:
 
-              R01-U36-L1
-              R01-U36-L2
-              R01-U35-L3
-              R01-U35-L4
+              R1-U36-L1
+              R1-U36-L2
+              R1-U35-L3
+              R1-U35-L4
               etc.
 
 
@@ -960,6 +960,13 @@ sub create_template_file {
     push @output, <<"EOF";
 ########################################################################
 #
+#   $progname v$version_number
+#
+#   Part of the "$pkgname" package
+#   https://github.com/finley/hpc-goodies
+#
+########################################################################
+#
 #   Template Instructions
 #
 ########################################################################
@@ -968,9 +975,9 @@ sub create_template_file {
 #
 #   - Configuration options
 #
-#       - DEVICE_NAME
+#       - HOSTNAME
 #
-#           The name of the switch or HCA device.  
+#           The hostname of the switch or HCA device.  
 #           
 #           Here are some example best practice recommendations for a few device
 #           types:
@@ -988,7 +995,7 @@ sub create_template_file {
 #
 #             HCA card(s) in a node:
 #
-#               RACK-LOWEST_RACK_UNIT-HCA-PORT
+#               RACK-LOWEST_RACK_UNIT-HCA
 #
 #
 #       - TOTAL_PORTS
@@ -1046,21 +1053,25 @@ rack_height_in_ru       42
 
 [cable_choices]
 #
-#   TYPE    LENGTH
+#   TYPE    LENGTH  [QUANTITY]
 #
-copper  .5
-copper  1
-copper  1.5
-copper  2
-copper  2.5
-copper  3
-copper  4
-fiber   5
-fiber   7
-fiber   10
-fiber   15
-fiber   20
-fiber   30
+#       If QUANTITY is omitted, an infinite supply is assumed.  Well, a really
+#       big number is used anyway... (1000000000)
+#
+copper 0.5
+copper 0.75
+copper 1
+copper 1.25
+copper 1.5
+copper 2
+copper 3
+fiber 3
+fiber 5
+fiber 10
+fiber 15
+fiber 20
+fiber 30
+fiber 50
 
 
 [floor_plan]
@@ -1070,75 +1081,29 @@ fiber   30
 #       Where TYPE = "racks", "cold_isle", or "hot_isle"
 #       and RACK1 etc. is the rack name.
 #
-#   racks   R01 R02 R03 R04
+#   racks   R1  R2  R3  R4
 #   cold_isle
-#   racks   R05 R06 R07 R08
+#   racks   R5  R6  R7  R8
 #   hot_isle
-#   racks   R09 R10 R11 R12
+#   racks   R9 R10 R11 R12
 #
-racks   R01 R02 R03 R04
+racks   R1 R2 R3 R4
 
-[cabling_methodology]
-#
-#   TIER    METHODOLOGY
-#
-#       Where METHODOLOGY is one of high-to-low, low-to-high, outside-in,
-#       inside-out
-#
-#           - high-to-low (default): Uplinks on a 36port switch would be ports
-#             19-36 for a 1:1 fabric.
-#
-#           - low-to-high: Uplinks on a 36port switch would be ports
-#             1-18 for a 1:1 fabric.
-#
-#           - outside-in: Uplinks on a 36port switch would be ports 1-9 and
-#             28-36 for a 1:1 fabric.  The left-most and right-most ports
-#             (outside edge ports) will be used for uplinks, while the center
-#             ports will be used for node links.  This works well if the leaf
-#             switches are in the same rack as the spine switches.
-#
-#           - inside-out: Uplinks on a 36port switch would be ports
-#             10-27 for a 1:1 fabric.  Opposite of outside-in.
-#
-tier1   high-to-low
-tier2   high-to-low
-
-
-[tier1]
-#
-#   DEVICE_NAME TOTAL_PORTS SPACE_DELIMITED_LIST_OF_USED_PORTS
-#
-R01-U05-L1 18 1 2 3 4 5 6 7 8
-R01-U05-L2 18
-R01-U05-L3 18
 
 [devices]
 #
-# DEVICE,   TIER, RACKNAME, RACK_UNIT, EXTRA_ID, TOTAL_PORTS, UPLINK_PORTS, DOWNLINK_PORTS, USED_PORTS_LIST, STRIPE, LAYOUT
+#   LAYOUT:
 #
-# sx6036-s1,   1,    R1,       31,        "",       36,          0,            36,             "",              [yes|no], high-to-low
-# sx6036-s2,   1,    R1,       32,        "",       36,          0,            36,             "",              [yes|no], high-to-low
+#       - high-to-low (default): Uplinks start with the highest available ports
+#         and iterate down.  Paired downlinks are chosen in a matching way, if
+#         possible.  On a 36port switch would be ports 19-36 for a 1:1 fabric.
 #
+#       - low-to-high: Opposite of high-to-low.
 #
-#   DEVICE is the name of the device you use as a hostname or on labels.  Note
-#   that the info on the label is positional only (does not include the DEVICE
-#   name), and is made up of {RACKNAME}-U{RACK_UNIT}-{EXTRA_ID}-P{PORT}.
-#
-#   STRIPE [yes|no] determins if this device's uplinks will be striped across
-#   higher tier switches (e.g.: switch1-p1, switch2-p1, switch3-p1, etc.) or
-#   not (e.g.: switch1-p1, switch1-p2, switch1-p3, etc.).  Default: "yes"
-#
-#   LAYOUT is a comma separated list that may include up to one of each of the
-#   following settings:
-#
-#       high-to-low (default) -- Uplinks will start with the highest available
-#       port on this switch, and iterate down.
-#
-#       low-to-high -- Opposite of high-to-low.
-#
-#       outside-in -- Uplinks will start with the outermost ports (highest
-#       number and lowest number) and iterate in.  On a 36port leaf switch,
-#       with 18 uplinks, the port selection would look like this:
+#       - outside-in -- Uplinks will start with the outermost ports (highest
+#         number and lowest number) and iterate in.  This works well if the leaf
+#         switches are in the same rack as the spine switches.  On a 36port leaf
+#         switch, with 18 uplinks, the port selection would look like this:
 #
 #             Uplinks                                      Uplinks
 #          ^^^^^^^^^^^^^                               ^^^^^^^^^^^^^^
@@ -1147,59 +1112,239 @@ R01-U05-L3 18
 #                        vvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 #                                  Downlinks
 #
-#       inside-out -- Opposite of outside-in.
+#       - inside-out: Opposite of outside-in.
 #
-#XXX need to complete this example
+#   EXTRA_ID:
 #
-
-
-
-
-#
-# Node with 2x dual-port adapters connected to tier1
-#   Resulting ports that get assigned in output:
-#       R02-U13-H1-1
-#       R02-U13-H1-2
-#       R02-U13-H2-1
-#       R02-U13-H2-2
-
-#       R02-U13-H1-1
-#       R02-U13-H1-1
-#       R02-U13-H1-1
-
-#
-R02-U13-H1 2 2 striped
-R02-U13-H2 2 2 striped
+#       - You can use this to indicate additional information to uniquely
+#         idenfity a device in it's p2p output, such as L or R for left and
+#         right on half-U nodes.
 #
 #
-# Node with only port 1 of a dual-port adapter connected to tier1 
-#   Resulting ports that get assigned in output:
-#       R02-U13-H1-1
+# HOSTNAME,   TIER, RACKNAME, RACK_UNIT, EXTRA_ID, TOTAL_PORTS, UPLINK_PORTS, USED_PORTS_LIST, LAYOUT
 #
-R02-U13-H1 1 1
+#   Spines
 #
+edr-spine1,    1,   R4,         22,         "",     36,         0,              "",              outside-in
+edr-spine2,    1,   R4,         23,         "",     36,         0,              "",              outside-in
+edr-spine3,    1,   R4,         24,         "",     36,         0,              "",              outside-in
 #
-# Node with only port 2 of a dual-port adapter connected to tier1
-#   Resulting ports that get assigned in output:
-#       R02-U13-H1-2
+edr-spine4,    1,   R4,         26,         "",     36,         0,              "",              outside-in
+edr-spine5,    1,   R4,         27,         "",     36,         0,              "",              outside-in
+edr-spine6,    1,   R4,         28,         "",     36,         0,              "",              outside-in
 #
-R02-U13-H1 2 1
-#
-#
-# 36port Leaf Switches in an iDataPlex rack
-#   Resulting ports that get assigned in output:
-#       R03-B-U8-25 - R03-B-U8-36
-#
-R03-B-U8 36 12
-R03-D-U8 36 12
-R03-D-U6 36 12
+edr-spine7,    1,   R4,         30,         "",     36,         0,              "",              outside-in
+edr-spine8,    1,   R4,         31,         "",     36,         0,              "",              outside-in
+edr-spine9,    1,   R4,         32,         "",     36,         0,              "",              outside-in
 #
 #
-# 36port Leaf Switch in standard rack
-#   Resulting ports that get assigned in output:
-#       R04-U40-19 - R04-U40-36
+#   Leafs
 #
-R05-U40 36 18
+edr-leaf1,     2,   R4,         11,         "",     36,         18,             "",                 outside-in
+edr-leaf2,     2,   R4,         12,         "",     36,         18,             "",                 outside-in
+#
+edr-leaf3,     2,   R4,         14,         "",     36,         18,             "",                 outside-in
+edr-leaf4,     2,   R4,         15,         "",     36,         18,             "",                 outside-in
+#
+edr-leaf5,     2,   R4,         17,         "",     36,         18,             "",                 outside-in
+edr-leaf6,     2,   R4,         18,         "",     36,         18,             "",                 outside-in
+#
+edr-leaf7,     2,   R4,         34,         "",     36,         18,             "",                 outside-in
+edr-leaf8,     2,   R4,         35,         "",     36,         18,             "",                 outside-in
+#
+edr-leaf9,     2,   R4,         37,         "",     36,         18,             "",                 outside-in
+edr-leaf10,    2,   R4,         38,         "",     36,         18,             "",                 outside-in
+#
+edr-leaf11,    2,   R4,         40,         "",     36,         18,             "",                 outside-in
+edr-leaf12,    2,   R4,         41,         "",     36,         18,             "",                 outside-in
+#
+#
+#   Nodes
+#
+# HOSTNAME, TIER, RACKNAME, RACK_UNIT, EXTRA_ID, TOTAL_PORTS, UPLINK_PORTS, USED_PORTS_LIST, LAYOUT
+#
+#                                                                           (for unspecified values the default is used)
+#
+nxt0101,    3,      R1,      3,        L,        1,           1
+nxt0102,    3,      R1,      3,        R,        1,           1
+nxt0103,    3,      R1,      4,        L,        1,           1
+nxt0104,    3,      R1,      4,        R,        1,           1
+nxt0105,    3,      R1,      5,        L,        1,           1
+nxt0106,    3,      R1,      5,        R,        1,           1
+nxt0107,    3,      R1,      6,        L,        1,           1
+nxt0108,    3,      R1,      6,        R,        1,           1
+nxt0109,    3,      R1,      7,        L,        1,           1
+nxt0110,    3,      R1,      7,        R,        1,           1
+nxt0111,    3,      R1,      8,        L,        1,           1
+nxt0112,    3,      R1,      8,        R,        1,           1
+nxt0113,    3,      R1,      9,        L,        1,           1
+nxt0114,    3,      R1,      9,        R,        1,           1
+nxt0115,    3,      R1,     10,        L,        1,           1
+nxt0116,    3,      R1,     10,        R,        1,           1
+nxt0117,    3,      R1,     11,        L,        1,           1
+nxt0118,    3,      R1,     11,        R,        1,           1
+nxt0119,    3,      R1,     12,        L,        1,           1
+nxt0120,    3,      R1,     12,        R,        1,           1
+nxt0121,    3,      R1,     13,        L,        1,           1
+nxt0122,    3,      R1,     13,        R,        1,           1
+nxt0123,    3,      R1,     14,        L,        1,           1
+nxt0124,    3,      R1,     14,        R,        1,           1
+nxt0125,    3,      R1,     15,        L,        1,           1
+nxt0126,    3,      R1,     15,        R,        1,           1
+nxt0127,    3,      R1,     16,        L,        1,           1
+nxt0128,    3,      R1,     16,        R,        1,           1
+nxt0129,    3,      R1,     17,        L,        1,           1
+nxt0130,    3,      R1,     17,        R,        1,           1
+nxt0131,    3,      R1,     18,        L,        1,           1
+nxt0132,    3,      R1,     18,        R,        1,           1
+nxt0133,    3,      R1,     19,        L,        1,           1
+nxt0134,    3,      R1,     19,        R,        1,           1
+nxt0135,    3,      R1,     20,        L,        1,           1
+nxt0136,    3,      R1,     20,        R,        1,           1
+nxt0137,    3,      R1,     23,        L,        1,           1
+nxt0138,    3,      R1,     23,        R,        1,           1
+nxt0139,    3,      R1,     24,        L,        1,           1
+nxt0140,    3,      R1,     24,        R,        1,           1
+nxt0141,    3,      R1,     25,        L,        1,           1
+nxt0142,    3,      R1,     25,        R,        1,           1
+nxt0143,    3,      R1,     26,        L,        1,           1
+nxt0144,    3,      R1,     26,        R,        1,           1
+nxt0145,    3,      R1,     27,        L,        1,           1
+nxt0146,    3,      R1,     27,        R,        1,           1
+nxt0147,    3,      R1,     28,        L,        1,           1
+nxt0148,    3,      R1,     28,        R,        1,           1
+nxt0149,    3,      R1,     29,        L,        1,           1
+nxt0150,    3,      R1,     29,        R,        1,           1
+nxt0151,    3,      R1,     30,        L,        1,           1
+nxt0152,    3,      R1,     30,        R,        1,           1
+nxt0153,    3,      R1,     31,        L,        1,           1
+nxt0154,    3,      R1,     31,        R,        1,           1
+nxt0155,    3,      R1,     32,        L,        1,           1
+nxt0156,    3,      R1,     32,        R,        1,           1
+nxt0157,    3,      R1,     33,        L,        1,           1
+nxt0158,    3,      R1,     33,        R,        1,           1
+nxt0159,    3,      R1,     34,        L,        1,           1
+nxt0160,    3,      R1,     34,        R,        1,           1
+nxt0201,    3,      R2,      3,        L,        1,           1
+nxt0202,    3,      R2,      3,        R,        1,           1
+nxt0203,    3,      R2,      4,        L,        1,           1
+nxt0204,    3,      R2,      4,        R,        1,           1
+nxt0205,    3,      R2,      5,        L,        1,           1
+nxt0206,    3,      R2,      5,        R,        1,           1
+nxt0207,    3,      R2,      6,        L,        1,           1
+nxt0208,    3,      R2,      6,        R,        1,           1
+nxt0209,    3,      R2,      7,        L,        1,           1
+nxt0210,    3,      R2,      7,        R,        1,           1
+nxt0211,    3,      R2,      8,        L,        1,           1
+nxt0212,    3,      R2,      8,        R,        1,           1
+nxt0213,    3,      R2,      9,        L,        1,           1
+nxt0214,    3,      R2,      9,        R,        1,           1
+nxt0215,    3,      R2,     10,        L,        1,           1
+nxt0216,    3,      R2,     10,        R,        1,           1
+nxt0217,    3,      R2,     11,        L,        1,           1
+nxt0218,    3,      R2,     11,        R,        1,           1
+nxt0219,    3,      R2,     12,        L,        1,           1
+nxt0220,    3,      R2,     12,        R,        1,           1
+nxt0221,    3,      R2,     13,        L,        1,           1
+nxt0222,    3,      R2,     13,        R,        1,           1
+nxt0223,    3,      R2,     14,        L,        1,           1
+nxt0224,    3,      R2,     14,        R,        1,           1
+nxt0225,    3,      R2,     15,        L,        1,           1
+nxt0226,    3,      R2,     15,        R,        1,           1
+nxt0227,    3,      R2,     16,        L,        1,           1
+nxt0228,    3,      R2,     16,        R,        1,           1
+nxt0229,    3,      R2,     17,        L,        1,           1
+nxt0230,    3,      R2,     17,        R,        1,           1
+nxt0231,    3,      R2,     18,        L,        1,           1
+nxt0232,    3,      R2,     18,        R,        1,           1
+nxt0233,    3,      R2,     19,        L,        1,           1
+nxt0234,    3,      R2,     19,        R,        1,           1
+nxt0235,    3,      R2,     20,        L,        1,           1
+nxt0236,    3,      R2,     20,        R,        1,           1
+nxt0237,    3,      R2,     23,        L,        1,           1
+nxt0238,    3,      R2,     23,        R,        1,           1
+nxt0239,    3,      R2,     24,        L,        1,           1
+nxt0240,    3,      R2,     24,        R,        1,           1
+nxt0241,    3,      R2,     25,        L,        1,           1
+nxt0242,    3,      R2,     25,        R,        1,           1
+nxt0243,    3,      R2,     26,        L,        1,           1
+nxt0244,    3,      R2,     26,        R,        1,           1
+nxt0245,    3,      R2,     27,        L,        1,           1
+nxt0246,    3,      R2,     27,        R,        1,           1
+nxt0247,    3,      R2,     28,        L,        1,           1
+nxt0248,    3,      R2,     28,        R,        1,           1
+nxt0249,    3,      R2,     29,        L,        1,           1
+nxt0250,    3,      R2,     29,        R,        1,           1
+nxt0251,    3,      R2,     30,        L,        1,           1
+nxt0252,    3,      R2,     30,        R,        1,           1
+nxt0253,    3,      R2,     31,        L,        1,           1
+nxt0254,    3,      R2,     31,        R,        1,           1
+nxt0255,    3,      R2,     32,        L,        1,           1
+nxt0256,    3,      R2,     32,        R,        1,           1
+nxt0257,    3,      R2,     33,        L,        1,           1
+nxt0258,    3,      R2,     33,        R,        1,           1
+nxt0259,    3,      R2,     34,        L,        1,           1
+nxt0260,    3,      R2,     34,        R,        1,           1
+nxt0301,    3,      R3,      3,        L,        1,           1
+nxt0302,    3,      R3,      3,        R,        1,           1
+nxt0303,    3,      R3,      4,        L,        1,           1
+nxt0304,    3,      R3,      4,        R,        1,           1
+nxt0305,    3,      R3,      5,        L,        1,           1
+nxt0306,    3,      R3,      5,        R,        1,           1
+nxt0307,    3,      R3,      6,        L,        1,           1
+nxt0308,    3,      R3,      6,        R,        1,           1
+nxt0309,    3,      R3,      7,        L,        1,           1
+nxt0310,    3,      R3,      7,        R,        1,           1
+nxt0311,    3,      R3,      8,        L,        1,           1
+nxt0312,    3,      R3,      8,        R,        1,           1
+nxt0313,    3,      R3,      9,        L,        1,           1
+nxt0314,    3,      R3,      9,        R,        1,           1
+nxt0315,    3,      R3,     10,        L,        1,           1
+nxt0316,    3,      R3,     10,        R,        1,           1
+nxt0317,    3,      R3,     11,        L,        1,           1
+nxt0318,    3,      R3,     11,        R,        1,           1
+nxt0319,    3,      R3,     12,        L,        1,           1
+nxt0320,    3,      R3,     12,        R,        1,           1
+nxt0321,    3,      R3,     13,        L,        1,           1
+nxt0322,    3,      R3,     13,        R,        1,           1
+nxt0323,    3,      R3,     14,        L,        1,           1
+nxt0324,    3,      R3,     14,        R,        1,           1
+nxt0325,    3,      R3,     15,        L,        1,           1
+nxt0326,    3,      R3,     15,        R,        1,           1
+nxt0327,    3,      R3,     16,        L,        1,           1
+nxt0328,    3,      R3,     16,        R,        1,           1
+nxt0329,    3,      R3,     17,        L,        1,           1
+nxt0330,    3,      R3,     17,        R,        1,           1
+nxt0331,    3,      R3,     18,        L,        1,           1
+nxt0332,    3,      R3,     18,        R,        1,           1
+nxt0333,    3,      R3,     19,        L,        1,           1
+nxt0334,    3,      R3,     19,        R,        1,           1
+nxt0335,    3,      R3,     20,        L,        1,           1
+nxt0336,    3,      R3,     20,        R,        1,           1
+nxt0337,    3,      R3,     23,        L,        1,           1
+nxt0338,    3,      R3,     23,        R,        1,           1
+nxt0339,    3,      R3,     24,        L,        1,           1
+nxt0340,    3,      R3,     24,        R,        1,           1
+nxt0341,    3,      R3,     25,        L,        1,           1
+nxt0342,    3,      R3,     25,        R,        1,           1
+nxt0343,    3,      R3,     26,        L,        1,           1
+nxt0344,    3,      R3,     26,        R,        1,           1
+nxt0345,    3,      R3,     27,        L,        1,           1
+nxt0346,    3,      R3,     27,        R,        1,           1
+nxt0347,    3,      R3,     28,        L,        1,           1
+nxt0348,    3,      R3,     28,        R,        1,           1
+nxt0349,    3,      R3,     29,        L,        1,           1
+nxt0350,    3,      R3,     29,        R,        1,           1
+nxt0351,    3,      R3,     30,        L,        1,           1
+nxt0352,    3,      R3,     30,        R,        1,           1
+nxt0353,    3,      R3,     31,        L,        1,           1
+nxt0354,    3,      R3,     31,        R,        1,           1
+nxt0355,    3,      R3,     32,        L,        1,           1
+nxt0356,    3,      R3,     32,        R,        1,           1
+nxt0357,    3,      R3,     33,        L,        1,           1
+nxt0358,    3,      R3,     33,        R,        1,           1
+nxt0359,    3,      R3,     34,        L,        1,           1
+nxt0360,    3,      R3,     34,        R,        1,           1
 
 EOF
     close(FILE);
@@ -1220,9 +1365,6 @@ sub print_output {
     
     open(FILE,">$file") or die("Coudn't open $file for writing");
     
-        print FILE qq("$progname v$version_number"\n);
-        print FILE qq("Part of '$pkgname'"\n);
-    
         foreach(@output) {
             print FILE $_;
         }
@@ -1240,11 +1382,22 @@ sub print_output {
             #print "\n";
             #print "Using $total_tier1_ports available ports across $tier1_count tier1 switches\n";
             #print "and $total_tier2_uplinks uplink ports across $tier2_count tier2 devices\n";
+
+            my $longest_number = 0;
+            foreach my $cable_type (sort keys %p2p_cable_counts) {
+                my $length = length $p2p_cable_counts{$cable_type};
+                if($length > $longest_number) {
+                    $longest_number = $length;
+                }
+            }
+
             print "\n";
-            print "Using the following cable counts:\n";
+            print "Assigned the following cable counts:\n";
             print "\n";
             foreach my $cable_type (sort keys %p2p_cable_counts) {
-                print "    $cable_type:  $p2p_cable_counts{$cable_type}\n";
+                my $length = length $p2p_cable_counts{$cable_type};
+                my $pad = space_pad( $longest_number - $length );
+                print "    ${pad}$p2p_cable_counts{$cable_type} $cable_type cables\n";
             }
             print "\n";
             print "Your label maker input file can be found here in .csv file format:\n";
@@ -1267,6 +1420,11 @@ sub print_output {
 }
 
 
+#
+#   Usage:
+#
+#       if( is_valid_number( $meters ) ) { do stuff; }
+#
 sub is_valid_number {
 
     my $input = shift;
@@ -1303,6 +1461,10 @@ sub choose_cable_length {
     my $device1 = shift;
     my $device2 = shift;
 
+    unless($cabling) {
+        return undef;
+    }
+
     my $rack1 = $devices{$device1}{rackname};
     my $rack2 = $devices{$device2}{rackname};
 
@@ -1313,7 +1475,7 @@ sub choose_cable_length {
     $ru1 =~ s/[a-z]//gi;
     $ru2 =~ s/[a-z]//gi;
 
-    my $length;
+    my $distance;
 
     #
     # distance along row
@@ -1324,16 +1486,16 @@ sub choose_cable_length {
     #
     my $columns = ($floor_plan{racks}{$rack1}{column} - $floor_plan{racks}{$rack2}{column});
     $columns = abs($columns);
-    $length = ($columns * $dimensions{rack_width});
+    $distance = ($columns * $dimensions{rack_width});
     #print "DEBUG: choose_cable_length(): columns $columns\n" if($debug);
 
     # above/below
     if($rack1 ne $rack2) {
         if($cabling eq 'above') {
-            $length += $dimensions{overhead_buffer};
+            $distance += $dimensions{overhead_buffer};
         }
         elsif($cabling eq 'below') {
-            $length += $dimensions{under_floor_buffer};
+            $distance += $dimensions{under_floor_buffer};
         }
 
         # distance down columns
@@ -1341,19 +1503,19 @@ sub choose_cable_length {
 
             # think this is considered in cold and hot isle. -BEF-
             #if( $floor_plan{row_type}{$row} eq 'racks' ) {
-            #    $length += $dimensions{rack_depth};
+            #    $distance += $dimensions{rack_depth};
             #}
             if( $floor_plan{row_type}{$row} eq 'cold_isle' ) {
-                $length += $dimensions{cold_isle};
+                $distance += $dimensions{cold_isle};
             }
             elsif( $floor_plan{row_type}{$row} eq 'hot_isle' ) {
-                $length += $dimensions{hot_isle};
+                $distance += $dimensions{hot_isle};
             }
         }
     }
 
     # cable slack to port
-    $length += ($dimensions{cable_slack_to_port} * 2);
+    $distance += ($dimensions{cable_slack_to_port} * 2);
 
     # vertical distance within rack
     my $vertical_distance;
@@ -1369,18 +1531,24 @@ sub choose_cable_length {
         #print "Other Rack, below\n" if($debug);
         $vertical_distance += ($ru1 + $ru2) * $dimensions{rack_unit};
     }
-    $length += $vertical_distance;
+    $distance += $vertical_distance;
     #print "DEBUG: vertical_distance $vertical_distance\n" if($debug);
 
     # Find the best cable for the job
     my $cable_length;
+    my $cable_type;
     if($rack1 eq $rack2) {
         # Within Rack, we try both, but prefer copper
-        foreach my $cable (sort numerically keys %{$cables{copper}}) {
+        $cable_type = 'copper';
+        foreach my $length (sort numerically keys %{$cables{$cable_type}}) {
 
-            if($cable > $length) {
-                $cable_length = "${cable}m";
-                #print "$device1 to $device2: Cable $cable is longer than $length\n" if($debug);
+            next unless($cables{$cable_type}{$length} > 0);
+            if($length > $distance) {
+                $cable_length = "${length}m";
+                $cables{$cable_type}{$length}--;
+
+                #print "$device1 to $device2: Cable $length is greater than $distance\n" if($debug);
+                print "Quantity of $cable_type ${length}m: $cables{$cable_type}{$length}\n" if($debug);
                 last;
             }
         }
@@ -1389,33 +1557,44 @@ sub choose_cable_length {
         # If we didn't find a proper copper, try with a fiber too
         #
         unless($cable_length) {
-            foreach my $cable (sort numerically keys %{$cables{fiber}}) {
-                if($cable > $length) {
-                    $cable_length = "${cable}m";
-                    #print "$device1 to $device2: Cable $cable is longer than $length\n" if($debug);
+            $cable_type = 'fiber';
+            foreach my $length (sort numerically keys %{$cables{$cable_type}}) {
+                next unless($cables{$cable_type}{$length} > 0);
+                if($length > $distance) {
+                    $cable_length = "${length}m";
+                    $cables{$cable_type}{$length}--;
+                    #print "$device1 to $device2: Cable $length is greater than $distance\n" if($debug);
+                    print "Quantity of $cable_type ${length}m: $cables{$cable_type}{$length}\n" if($debug);
                     last;
                 }
             }
         }
+
     } else {
         # Rack to rack, we only use fiber
-        foreach my $cable (sort numerically keys %{$cables{fiber}}) {
-            if($cable > $length) {
-                $cable_length = "${cable}m";
-                #print "$device1 to $device2: Cable $cable is longer than $length\n" if($debug);
+        $cable_type = 'fiber';
+        foreach my $length (sort numerically keys %{$cables{$cable_type}}) {
+            next unless($cables{$cable_type}{$length} > 0);
+            if($length > $distance) {
+                $cable_length = "${length}m";
+                $cables{$cable_type}{$length}--;
+                #print "$device1 to $device2: Cable $length is greater than $distance\n" if($debug);
+                print "Quantity of $cable_type ${length}m: $cables{$cable_type}{$length}\n" if($debug);
                 last;
             }
         }
     }
 
     if($debug) {
-        my $rounded_length = sprintf "%.2f", $length;
-        print "Device: $device1 to $device2,\tLength: $rounded_length,\tCable Length: $cable_length\n";
+        my $rounded_distance = sprintf "%.2f", $distance;
+        print "Device: $device1 to $device2,\tDistance: ${rounded_distance}m,\tCable Length: $cable_length\n";
     }
 
     if($cable_length) {
         return $cable_length 
     } else {
+        my $rounded_distance = sprintf "%.2f", $distance;
+        print "WARNING: An appropriate cable length was unavailable for $device1 to $device2,\tDistance: ${rounded_distance}m\n";
         return undef;
     }
 }
@@ -1425,15 +1604,23 @@ sub create_output {
 
     print qq(DEBUG: create_output\n) if(defined $debug);
 
+    push @output, qq($progname v$version_number\n);
+    push @output, qq(Part of the "$pkgname" package\n);
+    push @output, qq(https://github.com/finley/hpc-goodies\n);
+
     my $line;
     my $column = 1;
     foreach my $lower_tier_label (reverse sort (keys %p2p_assignments) ) {
     
-        my $port1_label = $p2p_assignments{$lower_tier_label}{port1_label};
-        my $port2_label = $p2p_assignments{$lower_tier_label}{port2_label};
+        my $port1_label  = $p2p_assignments{$lower_tier_label}{port1_label};
+        my $port2_label  = $p2p_assignments{$lower_tier_label}{port2_label};
         my $cable_length = $p2p_assignments{$lower_tier_label}{cable_length};
 
-        $line .= qq("$cable_length\n$port1_label\n$port2_label");
+        if($cable_length) {
+            $line .= qq("$cable_length\n$port1_label\n$port2_label");
+        } else {
+            $line .= qq("$port1_label\n$port2_label");
+        }
 
         if($column < $columns) {
             $line .= qq(,);    # Add the csv separator and track the column count
@@ -1453,73 +1640,6 @@ sub create_output {
 }
 
 
-#sub assign_p2p_for_non_stripey_tier2_devices {
-#    #
-#    # Do non-stripey tier2 devices now (the default)
-#    #
-#    print qq(> begin "Do non-stripey tier2 devices now"\n) if(defined $debug);
-#    foreach my $tier1_port (reverse schwartzian_sort (keys %tier1_ports) ) {
-#    
-#        #print qq(>> considering tier1_port $tier1_port\n) if(defined $debug);
-#    
-#        #
-#        # Skip this entry if it's already defined
-#        #
-#        next if(defined $p2p_assignments{$tier1_port});
-#    
-#        #
-#        # End loop if we've processed all the tier2 ports
-#        #
-#        last if(scalar(@tier2_ports) == 0 );
-#    
-#        my $tier2_port = shift @tier2_ports;
-#        $p2p_assignments{$tier1_port} = $tier2_port;
-#        print qq(>> assigning tier1_port $tier1_port to tier2_port $tier2_port\n) if(defined $debug);
-#    }
-#}
-
-
-#sub assign_p2p_for_stripey_tier2_devices {
-#    #
-#    # Do stripey tier2 devices first
-#    #
-#    print qq(> begin "Do stripey tier2 devices first"\n) if(defined $debug);
-#    while (@tier2_ports_to_be_striped) {
-#    
-#        foreach my $tier1_port (reverse schwartzian_sort (keys %tier1_ports) ) {
-#        
-#            #print qq(>> considering tier1_port $tier1_port\n) if(defined $debug);
-#            $switch_name = $tier1_ports{$tier1_port};
-#        
-#            #
-#            # Don't want to use a port on the same tier1 switch twice for this
-#            # tier2 device.
-#            #
-#            next if($switch_name eq $last_switch_name);
-#        
-#            #
-#            # Skip this entry if it's already defined
-#            #
-#            next if(defined $p2p_assignments{$tier1_port});
-#    
-#            #
-#            # End loop if we've processed all the tier2 ports
-#            #
-#            last if( scalar(@tier2_ports_to_be_striped) == 0 );
-#        
-#            $_ = shift @tier2_ports_to_be_striped;
-#        
-#            my ($tier2_port, $stripe) = split(/\s+/, $_);
-#        
-#            $p2p_assignments{$tier1_port} = $tier2_port;
-#            print qq(>> assigning tier1_port $tier1_port to tier2_port $tier2_port\n) if(defined $debug);
-#        
-#            # Remember which switch was last used
-#            $last_switch_name = $switch_name;
-#        }
-#    }
-#}
-
 
 # Description:
 # Modify a sort so that 10 comes after 2.  
@@ -1531,6 +1651,24 @@ sub create_output {
 #
 sub numerically {
     $a <=> $b;
+}
+
+#
+# Return a pad of spaces of N length.
+#
+#   my $pad = space_pad(N);
+#
+sub space_pad {
+
+    my $space_count = shift;
+
+    my $pad = "";
+    my $i = 0;
+    until($i == $space_count) {
+        $pad .= " ";
+        $i++;
+    }
+    return $pad;
 }
 
 #
