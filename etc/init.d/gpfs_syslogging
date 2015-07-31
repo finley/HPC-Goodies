@@ -28,6 +28,9 @@
 PATH=/usr/bin:/bin
 PID_FILE=/var/run/gpfs_syslogging.pid
 
+# Exit silently if GPFS isn't installed
+test -e /var/adm/ras/ || exit 0
+
 start() {
     /usr/bin/tail -n 100 -F /var/adm/ras/mmfs.log.latest 2>/dev/null | /usr/bin/logger -t GPFS &
 	RETVAL=$?
