@@ -1,0 +1,86 @@
+#!/usr/bin/perl -w
+#
+# 2015.07.29 Brian Elliott Finley <brian@thefinleys.com>
+#   - created while working with Michael Jennings <mej@lbl.gov>
+#   - conversion method recommended by Jarrod Johnson <jjohnson2@lenovo.com>
+#
+# 2015.08.01 Brian Elliott Finley <brian@thefinleys.com>
+#   - created
+#
+
+use strict;
+use File::Basename;
+
+my $mac = $ARGV[0];
+if( !defined $mac) {
+    usage();
+    exit 1;
+}
+
+my $nicname = "eth0";
+if($ARGV[1]) {
+    $nicname = $ARGV[1];
+}
+
+# Break the MAC address into hextets
+my ($m1, $m2, $m3, $m4, $m5, $m6) = split(/:/, $mac);
+
+# Do a little IPv6-foo
+$m1 += 2;
+
+# And re-assemble into an IPv6 link local address
+my $ipv6 = "fe80::" . "${m1}${m2}:${m3}" . "ff:fe" . "${m4}:${m5}${m6}";
+
+# Oh -- and be sure to specify the interface on the machine from which
+# you will originate traffic destined for the IPv6 address we just
+# formed.  This should be the interface that is on the same physical
+# link as the target interface.
+$ipv6 .=  "%" . "$nicname";
+
+print "$ipv6\n";
+
+
+sub usage {
+    my $progname = basename($0);
+    print <<EOF;
+SYNOPSIS
+
+    $progname ETHERNET_MAC_ADDRESS [MY_INTERFACE_NAME]
+
+DESCRIPTION
+
+    $progname will take the provided Ethernet MAC address and return an IPv6
+    link local address.  Where MY_INTERFACE_NAME is the interface on the
+    machine from which you will originate traffic to the target IPv6 address,
+    that is on the same physical link as the target interface.  Defaults to
+    "eth0" if not specified.
+
+    Example:
+        # $progname 00:50:b6:78:80:2f eth1
+        fe80::250:b6ff:fe78:802f%eth1
+
+        # ping6 fe80::250:b6ff:fe78:802f%eth1
+        PING fe80::250:b6ff:fe78:802f%eth1(fe80::250:b6ff:fe78:802f) 56 data bytes
+        64 bytes from fe80::250:b6ff:fe78:802f: icmp_seq=1 ttl=64 time=0.062 ms
+        64 bytes from fe80::250:b6ff:fe78:802f: icmp_seq=2 ttl=64 time=0.061 ms
+        etc.
+
+        NOTE:  You won't actually be able to ping the example address above, as
+        it is on my notebook, and therefore not on the same physical link as
+        your machine. ;-)  (most likely...)
+        
+
+SEE ALSO
+
+    https://github.com/finley/HPC-Goodies/blob/master/README.md
+
+
+BUGS
+
+    Report bugs and suggestions at: https://github.com/finley/HPC-Goodies/issues
+
+
+EOF
+
+    return 1;
+}
