@@ -116,6 +116,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files ib
 %defattr(-, root, root)
+%doc usr/share/doc/ib_arch_diags/*
 %{_sbindir}/get_root_guids
 %{_sbindir}/set_hca_firmware_update
 %{_sbindir}/test_hca_state
