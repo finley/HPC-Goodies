@@ -1,3 +1,27 @@
+- "best practice configurations" via SSM and/or Puppet to include:
+    - numad (maybe)
+        - https://goo.gl/Kd1hB5
+        - https://goo.gl/y7qwIp
+
+
+- 
+    New tool, proposed by Mark at TAMU:
+    - ethernet.label_switch_ports
+
+        Take xCAT node to port mappings, and set node name as label for
+        each port in each Ethernet switch.
+
+        - Helps in tracking down issues when monitoring for problems in
+          switch fabric.
+
+
+--
+flops-calculator
+    - /etc/hpc-goodies/flops-calculator.conf.d/
+    - /etc/hpc-goodies/flops-calculator.conf.d/Intel-E5-2698a.conf
+    - /etc/hpc-goodies/flops-calculator.conf.d/ARM-1234.conf
+    - /etc/hpc-goodies/flops-calculator.conf.d/NVidia-k80.conf
+
 --
 /etc/rc.d/init.d/set_cpu_state
     set defaults to:
