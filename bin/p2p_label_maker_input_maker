@@ -1,7 +1,5 @@
 #!/usr/bin/perl -w
 
-#XXX add option to iterate over higher devices, even if each lower tier device only has one port to uplink
-
 #
 # 2012.04.12  Brian Finley <bfinley@lenovo.com>
 # - created to generate p2p labels for UChicago install by Rochester CSC
@@ -29,6 +27,9 @@ my $pkgname = 'HPC Goodies';
 my $version_number = '0.4.7';
 my $pkg_url = 'https://github.com/finley/hpc-goodies';
 
+my @ARGV_orig;
+push @ARGV_orig, @ARGV;
+
 our @output;
 
 my $columns = 1;
@@ -39,9 +40,9 @@ GetOptions(
     "columns=i"             =>    \$columns,
     "output-file=s"         => \my $output_file,
     "c|config|input-file=s" => \my $conf,
-    "delimiter"             => \my $delimiter,
+    "d|delimiter=s"         => \my $delimiter,
     "cabling|cables=s"      => \my $cabling,
-    "d|debug"               => \my $debug,
+    "debug"                 => \my $debug,
     "create-template"       => \my $create_template,
 ) or usage() and exit(1);
 
@@ -110,8 +111,6 @@ $dimensions{rack_height_in_ru}   = 42;          # height in rack units
 #
 # TODO:
 # - for each rack, indicate front or back cabling
-# - handle putting copper cables on outside of switches
-#   - outside-in, inside-out, low-to-high, high-to-low
 # 
 
 
@@ -151,8 +150,8 @@ sub make_p2p_assignments {
 
                 print "DEBUG: higher_tier_label $higher_tier_label\n" if($debug);
 
-                my $lower_tier_port_label = "$lower_tier_label-$port_indicator$port";
-                my $higher_tier_port_label = "$higher_tier_label-$port_indicator$higher_tier_port";
+                my $lower_tier_port_label  = $lower_tier_label  . $delimiter . $port_indicator . $port;
+                my $higher_tier_port_label = $higher_tier_label . $delimiter . $port_indicator . $higher_tier_port;
 
                 $devices{$lower_tier_label}{uplink_port_assignments}{$port}                 = $higher_tier_port_label;
                 $devices{$higher_tier_label,}{downlink_port_assignments}{$higher_tier_port} = $lower_tier_port_label;
@@ -286,85 +285,6 @@ sub assign_uplink_targets {
 
     return 1;
 }
-
-
-#
-# Downlink Target is the port on the lower tier switch to which we will
-# connect.  The downstream end of the p2p.
-#
-# This subroutine is written from the perspective of the higher tier device
-#
-#sub get_next_free_downlink_port {
-#
-#    my $label   = shift;
-#    my $port    = shift;
-#
-#    my $side;
-#    if($devices{$label}{port}{$port}) {
-#        $side = $devices{$label}{port}{$port};
-#    } else {
-#        $side = 'low';
-#    }
-#
-#    my $tier = $devices{$label}{tier} - 1;
-#    my $downlink_port;
-#    if(scalar(@{$devices{downlink_port_labels}{$side}{$tier}}) > 0) {
-#        $downlink_port = shift @{$devices{downlink_port_labels}{$side}{$tier}};
-#
-#    } else {
-#
-#        if(scalar(@{$devices{downlink_port_labels}{low}{$tier}}) > 0) {
-#            $downlink_port = shift @{$devices{downlink_port_labels}{low}{$tier}};
-#
-#        } elsif(scalar(@{$devices{downlink_port_labels}{high}{$tier}}) > 0) {
-#            $downlink_port = shift @{$devices{downlink_port_labels}{high}{$tier}};
-#
-#        } else {
-#            return undef;
-#        }
-#    }
-#
-#    #print "DEBUG: Next downlink port for Tier $devices{$label}{tier} is $downlink_port\n" if($debug);
-#
-#    return $downlink_port;
-#
-#    ## XXX incorporate this later... -BEF-
-#    ##
-#    ## See if there's an uplink device in this tier in the same rack as the downlink device
-#    ##
-#    #my $downlink_target_rackname = $devices{$label}{rackname};
-#    #if( $devices{tier}{$tier}{rackname}{$downlink_target_rackname} ) {
-#    #    # yes!
-#    #    # prefer a device from here
-#    #} else {
-#    #    # no!
-#    #}
-#}
-
-
-#sub get_next_free_uplink_port {
-#
-#    my $label = shift;
-#
-#    
-#
-#    return $port;
-    #return 1;
-
-    #my $port;
-    #if(scalar(@{$devices{$label}{free_uplinks}}) > 0) {
-    #    $port_label = shift @{$devices{$label}{free_uplinks}};
-    #}
-    #
-    #return $port_label;
-
-    #my $port_label;
-    #if(scalar(@{$devices{$label}{free_uplinks}}) > 0) {
-    #    $port_label = shift @{$devices{$label}{free_uplinks}};
-    #}
-    #
-    #return $port_label;
-#}
 
 
 sub read_config_file {
@@ -515,8 +435,8 @@ sub read_config_file {
                     $used_ports_list = undef    unless($used_ports_list and $used_ports_list =~ m/\d/);
     
                     # Build name of device to be used on the label
-                    my $label  = "$rackname-U$rackunit";
-                    $label    .= "-$extra_id" if($extra_id);
+                    my $label  = $rackname . $delimiter . "U$rackunit";
+                    $label    .= $delimiter . $extra_id if($extra_id);
     
                     my $used_ports = 0;
                     if($used_ports_list) {
@@ -838,6 +758,15 @@ Usage:  $progname --config-file FILE [OPTION...]
         Where FILE contains tier1 and tier2 device entries in the
         following format.  Hash marks are fine within a section, but an
         empty line indicates the end of a section.
+
+
+    --delimiter DELIMITER
+
+        Where DELIMITER is the character(s) that you want to separate each
+        element in a device name on a label.  By default, a hyphen (-) is used
+        and highly recommended for readability.
+
+        Example:  R1-U8-P36
 
 
     --create-template
@@ -1610,11 +1539,12 @@ sub choose_cable_length {
 
 sub create_output {
 
-    print qq(DEBUG: create_output\n) if(defined $debug);
+    print qq(\nDEBUG: create_output\n) if(defined $debug);
 
     push @output, qq($progname v$version_number\n);
     push @output, qq(Part of the "$pkgname" package\n);
     push @output, qq(https://github.com/finley/hpc-goodies\n);
+    push @output, qq(Output created with: @ARGV_orig\n);
 
     my $line;
     my $column = 1;
