@@ -1,0 +1,11 @@
+#
+# Script to take all disks connected to a node's local HW RAID
+# controller, and turn them into individual disks (JBOD style).
+#
+
+# Clear any existing disk config from the HW Raid controller
+sudo /opt/MegaRAID/MegaCli/MegaCli64 -CfgClr -aALL
+
+# Create a separate (RAID0) volume out of each individual disk
+sudo /opt/MegaRAID/MegaCli/MegaCli64 CfgEachDskRaid0 WB ADRA Cached CachedBadBBU -aALL
+

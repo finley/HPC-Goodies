@@ -1,0 +1,28 @@
+#
+# Script to take sixteen disks connected to a node's local HW RAID
+# controller, and turn them into sixteen individual disks, striped with
+# no redundancy, for high performance scratch space.
+#
+
+# Clear any existing disk config from the HW Raid controller
+sudo /opt/MegaRAID/MegaCli/MegaCli64 -CfgClr -aALL
+    # -CfgClr -- Config Clear
+        # -aALL -- All adapters on this node
+
+# Create a RAID1 volume with all disks
+megacli -CfgLdAdd -r1 [252:0,252:1] WB RA Direct CachedBadBBU -a0
+    # -CfgLdAdd -- Configure LogicalDisk Add
+        # -r1   -- RAID1
+            # WB -- use Write Back cache
+                # RA -- use Read Ahead
+                    # Direct -- ??
+                        # CachedBadBBU -- use Cache even if you have a
+                        # Bad Battery Backup Unit
+                            # -a0 -- adapter number 0 on this node
+
+
+#   
+# References:
+#
+#   http://wiki.hetzner.de/index.php/LSI_RAID_Controller/en
+#   
