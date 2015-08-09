@@ -27,12 +27,18 @@ TOPDIR := $(CURDIR)
 
 
 .PHONY: all
-all:  $(TOPDIR)/bin/* $(TOPDIR)/etc/init.d/* $(TOPDIR)/bin/c1eutil $(TOPDIR)/bin/set_dma_latency
+all:  $(TOPDIR)/bin/* $(TOPDIR)/etc/init.d/* $(TOPDIR)/c1eutil/c1eutil $(TOPDIR)/set_dma_latency/set_dma_latency
+
+set_dma_latency/set_dma_latency:
+
+c1eutil/c1eutil:
 
 .PHONY: install
 install:  all
 	test -d $(DESTDIR)${sbindir} || install -d -m 755  $(DESTDIR)${sbindir}
 	install -m 755 $(TOPDIR)/bin/*			$(DESTDIR)${sbindir}/
+	install -m 755 $(TOPDIR)/set_dma_latency/set_dma_latency  $(DESTDIR)${sbindir}/
+	install -m 755 $(TOPDIR)/c1eutil/c1eutil  $(DESTDIR)${sbindir}/
 
 	test -d $(DESTDIR)${initdir} || install -d -m 755	$(DESTDIR)${initdir}
 	install -m 755 $(TOPDIR)/etc/init.d/*	$(DESTDIR)${initdir}/
@@ -149,7 +155,9 @@ dist:
 clean:
 	-rm -fr $(TOPDIR)/tmp/ $(TOPDIR)/${package}-$(VERSION)
 	-rm -fr $(TOPDIR)/usr/share/man/
-	-rm -f $(TOPDIR)/${package}-$(VERSION).tar.* $(TOPDIR)/${package}-*.rpm
+	-rm -f  $(TOPDIR)/${package}-$(VERSION).tar.* $(TOPDIR)/${package}-*.rpm
+	-rm -f  c1eutil/c1eutil
+	-rm -f  set_dma_latency/set_dma_latency
 
 .PHONY: distclean
 distclean: clean
@@ -157,4 +165,11 @@ distclean: clean
 	-rm -f  $(TOPDIR)/build-stamp
 	-rm -f  $(TOPDIR)/debian/files
 	-rm -fr $(TOPDIR)/debian/${package}/
+
+.PHONY: help
+help:
+	@echo All Available Targets Include:
+	@echo ---------------------------------------------------------------------
+	@cat Makefile | egrep '^[a-zA-Z0-9_]+:' | sed 's/:.*//' | sort -u
+	@echo
 
