@@ -29,9 +29,26 @@ TOPDIR := $(CURDIR)
 .PHONY: all
 all:  $(TOPDIR)/bin/* $(TOPDIR)/etc/init.d/* $(TOPDIR)/c1eutil/c1eutil $(TOPDIR)/set_dma_latency/set_dma_latency
 
+
+
+.PHONY: set_dma_latency
+set_dma_latency: set_dma_latency/set_dma_latency
 set_dma_latency/set_dma_latency:
 
+.PHONY: set_dma_latency_clean
+set_dma_latency_clean:
+	-rm -f  set_dma_latency/set_dma_latency
+
+
+.PHONY: c1eutil
+c1eutil: c1eutil/c1eutil
 c1eutil/c1eutil:
+
+.PHONY: c1eutil_clean
+c1eutil_clean:
+	-rm -f  c1eutil/c1eutil
+
+
 
 .PHONY: install
 install:  all
@@ -152,11 +169,10 @@ dist:
 	-rm -rf $(TOPDIR)/${package}-$(VERSION)
 
 .PHONY: clean
-clean:
+clean:	c1eutil_clean
 	-rm -fr $(TOPDIR)/tmp/ $(TOPDIR)/${package}-$(VERSION)
 	-rm -fr $(TOPDIR)/usr/share/man/
 	-rm -f  $(TOPDIR)/${package}-$(VERSION).tar.* $(TOPDIR)/${package}-*.rpm
-	-rm -f  c1eutil/c1eutil
 	-rm -f  set_dma_latency/set_dma_latency
 
 .PHONY: distclean
