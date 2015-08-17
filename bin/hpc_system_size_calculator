@@ -1,0 +1,358 @@
+#!/bin/bash
+############################################################################
+# Copyright (C) 2015  Lenovo Group, Ltd.                                   #
+#                                                                          #
+# Author:  Raj Panda - March 6, 2015                                       #
+#                                                                          #
+############################################################################
+if [ -z $1 ] ; then
+  echo "$0 usage: Haswell processor model (e.g. 2698a) , number of nodes"
+  exit
+fi
+
+model=$1
+N_nodes=$2
+if [ $N_nodes -lt "32" ]; then
+	clust_eff_aggr=1.0
+	clust_eff_cons=1.0
+else
+	Nmod32=`expr $N_nodes / 32`
+	eff_red=`echo "l(${Nmod32})/l(2)" | bc -l`
+##        echo $eff_red
+        eff_red_aggr=$eff_red
+        eff_red_cons=`echo "0.75 * $eff_red" | bc `
+##        echo "Aggressive reduction: $eff_red_aggr "
+##        echo "Conservative reduction: $eff_red_cons "
+        clust_eff_aggr=`echo "100.0 - $eff_red_cons" | bc `
+        clust_eff_cons=`echo "100.0 - $eff_red_aggr" | bc `
+        printf -v clust_eff_aggr "%0.2f" "$clust_eff_aggr"
+        printf -v clust_eff_cons "%0.2f" "$clust_eff_cons"
+##        echo "Cluster efficiency (aggressive)   for $N_nodes nodes = $clust_eff_aggr "
+##        echo "Cluster efficiency (conservative) for $N_nodes nodes = $clust_eff_cons "
+fi
+
+case "$model" in 
+	2699)
+		cores=18
+		f_base=2.3
+		f_avx=1.9
+                tdp=145
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	2698a)
+		cores=16
+		f_base=2.8
+		f_avx=2.3
+                tdp=165
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	2698)
+		cores=16
+		f_base=2.3
+		f_avx=1.9
+                tdp=135
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	2697)
+		cores=14
+		f_base=2.6
+		f_avx=2.2
+                tdp=145
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	2695)
+		cores=14
+		f_base=2.3
+		f_avx=1.9
+                tdp=120
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	2690)
+		cores=12
+		f_base=2.6
+		f_avx=2.3
+                tdp=135
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	2680)
+		cores=12
+		f_base=2.5
+		f_avx=2.1
+                tdp=120
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	2670)
+		cores=12
+		f_base=2.3
+		f_avx=2.0
+                tdp=120
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	2667)
+		cores=8
+		f_base=3.2
+		f_avx=2.7
+                tdp=135
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	2660)
+		cores=10
+		f_base=2.6
+		f_avx=2.2
+                tdp=105
+
+                echo ""
+		echo "Haswell processor model is E5-$model v3"
+                echo ""
+                echo "Number of cores per socket         = $cores"
+                echo "Processor Base frequency     (GHz) = $f_base"
+                echo "Processor AVX Base frequency (GHz) = $f_avx"
+                echo "Processor TDP              (Watts) = $tdp"
+
+                rpeak_t500=`echo "2 * $cores * $f_base * 16" | bc`
+                printf -v rpeak_t500 "%0.0f" "$rpeak_t500"
+                rpeak_t500_n=`echo "$rpeak_t500 * $N_nodes / 1000" | bc`
+		rmax_1node=`echo "2 * $cores * $f_avx * 16 * 0.92" | bc`
+                printf -v rmax_1node "%0.0f" "$rmax_1node"
+                rmax_n_aggr=`echo "$N_nodes * $clust_eff_aggr * $rmax_1node / 100 /1000" | bc`
+                rmax_n_cons=`echo "$N_nodes * $clust_eff_cons * $rmax_1node / 100 /1000" | bc`
+                echo ""
+                echo "Rpeak (T500)               1 node  (GF) = $rpeak_t500"
+		echo "Rmax                       1 node  (GF) = $rmax_1node"
+                echo "Rpeak (T500)        for $N_nodes nodes (TF) = $rpeak_t500_n"
+                echo ""
+                echo "WARNING: Following estimates should be used strictly for cluster system sizing"
+                echo "Performance projections for customer committments must be reviwed by an expert"
+                echo ""
+                echo "Rmax (aggreesive)   for $N_nodes nodes (TF) = $rmax_n_aggr"
+                echo "Rmax (conservative) for $N_nodes nodes (TF) = $rmax_n_cons"
+		;;
+	*)
+                echo $"Allowed Haswell processor models: 2699, 2698a, 2698, 2697, 2695, 2690, 2680, 2670, 2667, 2660"
+		exit 1
+esac
