@@ -1,0 +1,81 @@
+#!/bin/bash
+
+#
+# 2012.11.05 Brian Elliott Finley <bfinley@lenovo.com>
+# 2012.12.13 Brian Elliott Finley <bfinley@lenovo.com>
+#   - significantly improved
+# 2013.04.15 Brian Elliott Finley <bfinley@lenovo.com>
+#   - don't assume /tmp and that it must be resized
+#
+
+NR=$1
+
+if [ -z $NR ]; then
+    echo "$0 NODERANGE"
+    exit 1
+fi
+
+FIRMWARE_DIR=/install/firmware
+FIRMWARE_INSTALLER=ibm_utl_uxspi_9.30_rhel6_32-64.bin
+
+#
+# Uncomment this next line if you want to update the backup UEFI
+# location instead of the primary:
+#UPDATE_ARGS='--update-args="UEFI:--backup"'
+
+TMP_BEFORE=$(mktemp)
+TMP_AFTER=$(mktemp)
+TMP_EXECUTION=$(mktemp)
+
+echo "Testing for the lsusb utility..."
+xdsh $NR 'lsusb >/dev/null 2>&1 || echo FAIL' | grep -qw FAIL && NEED_LSUSB=yes
+
+if [ "$NEED_LSUSB" == "yes" ]; then
+    echo "Please install lsusb then try again (try ./set_lsusb_tmp_install)"
+    echo -n "Hit <Enter> to continue, or <ctrl>+<c> to exit..."
+    read x
+fi
+
+
+echo "Querying nodes for existing firmware versions..."
+rinv $NR firmware > $TMP_BEFORE
+
+# XXX test for tmpfs first?  or just leave as comment for sites that
+# need it?
+#echo "Prepping temp space on nodes to accept firmware files..."
+#xdsh $NR "mount -o remount,size=1g /tmp/" | tee -a $TMP_EXECUTION
+
+echo "Copying firmware files out to nodes..."
+xdcp $NR ${FIRMWARE_DIR}/{$FIRMWARE_INSTALLER,*.uxz,*.xml} /tmp/ | tee -a $TMP_EXECUTION
+
+echo "Updating firmware on nodes.  Please be patient, this can take several minutes..."
+xdsh $NR "cd /tmp ; chmod +x ./$FIRMWARE_INSTALLER ; ./$FIRMWARE_INSTALLER update --firmware --local=/tmp/ --latest --unattended $UPDATE_ARGS ; sleep 1m" | tee -a $TMP_EXECUTION
+
+
+#
+#   See the following document for details on the UXSPI options above:
+#
+#       http://download.boulder.ibm.com/ibmdl/pub/systems/support/system_x_pdf/ibm_utl_uxspi_9.30_anyos_noarch.pdf
+#
+
+
+echo
+echo "Querying nodes for resultant firmware versions..."
+rinv $NR firmware > $TMP_AFTER
+
+echo
+echo "               Before"
+cat $TMP_BEFORE | xcoll -n -c
+
+echo
+echo "               After"
+echo " (Note: a reboot may be required to activate new UEFI firmware)"
+cat $TMP_AFTER | xcoll -n -c
+
+/bin/rm $TMP_BEFORE $TMP_AFTER $TMP_EXECUTION
+
+echo 
+echo "After confirmation that the update succeeded, please re-apply your"
+echo "ASU settings"
+echo 
+
