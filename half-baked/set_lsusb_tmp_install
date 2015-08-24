@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#
+# 2012.12.12 Brian Elliott Finley <bfinley@lenovo.com>
+#   - created
+#
+
+NR=$1
+
+if [ -z $NR ]; then
+    echo "$0 NODERANGE"
+    echo
+    echo "Does a temporary install of lsusb to facilitate a node firmware install."
+    echo
+    exit 1
+fi
+
+
+LIBUSB=$(ldd /usr/bin/lsusb | grep libusb | awk '{print $3}')
+
+xdcp $NR /usr/bin/lsusb /usr/bin/lsusb
+xdcp $NR $LIBUSB $LIBUSB
+
