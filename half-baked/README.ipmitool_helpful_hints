@@ -1,0 +1,21 @@
+#
+# 2012.10.27 Brian Elliott Finley <bfinley@lenovo.com>
+#   - created
+#
+
+Try this on a node to see it's current settings:
+
+    ipmitool-xcat lan print 1
+
+
+Try this from a management server to see a remote node's settings:
+
+    ipmitool-xcat -H $nodename-imm lan print 1
+
+
+To see various paramters you may want to set, run this command, and
+you'll get help on available options:
+
+    ipmitool-xcat lan set 1 
+
+

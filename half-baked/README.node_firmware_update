@@ -1,0 +1,45 @@
+#
+#   2012.12.18 Brian Finley <bfinley@lenovo.com>
+#   - created
+#
+
+1) ./set_uefi_and_imm_firmware_update $NR
+
+2) reboot node and verify:
+
+    rpower $NR reset
+    rinv $NR firmware
+
+3) Optional: If you choose to also update the backup UEFI location, uncomment
+   the appropriate line in the ./set_uefi_and_imm_firmware_update script and
+   run again.
+
+4) Re-apply the ASU settings:
+
+   ./set_asu_to_dx360m4_best_recipe $NR
+
+   or
+
+   ./set_asu_to_x3650m4_best_recipe-no_boot_on_power $NR
+
+
+5) Verify that the node is booting from the primary firmware location:
+
+    # Query the node
+    xcatclient ripmi $NR 3a 1c 2
+
+    # if a node says '0' it means booted to primary
+    # if it says 1 then backup
+
+    # to change to primary
+    xcatclient ripmi $NR 3a 1c 1 0
+
+    # to change to backup:
+    xcatclient ripmi $NR 3a 1c 1 1
+
+
+References:
+    * http://ibm.com/support/
+
+
+
