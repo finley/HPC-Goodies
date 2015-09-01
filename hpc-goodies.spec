@@ -10,71 +10,77 @@ Packager: Brian Finley <brian@thefinleys.com>
 Vendor: Brian Finley <brian@thefinleys.com>
 Prefix: %{_prefix}
 BuildRoot: %{?_tmppath}%{!?_tmppath:/tmp}/%{name}-%{version}-%{release}-root
+Requires: %{name}-cpu  = %{version}-%{release}
+Requires: %{name}-gpfs = %{version}-%{release}
+Requires: %{name}-uefi = %{version}-%{release}
+Requires: %{name}-xcat = %{version}-%{release}
+Requires: %{name}-ib   = %{version}-%{release}
+Requires: %{name}-misc = %{version}-%{release}
+
 
 %description
-Brian Finley's HPC Goodies
+ALL of Brian Finley's HPC Goodies (installs all the other goodie bags).
 
 %package cpu
 Summary: HPC Goodies for CPUs
 Group: Applications/System
-Requires: %{name} = %{version}-%{release}
+Requires: %{name}-libs = %{version}-%{release}
 
 %description cpu
 Brian Finley's HPC Goodies for CPUs
 
+
 %package gpfs
 Summary: HPC Goodies for GPFS
 Group: Applications/System
-Requires: %{name} = %{version}-%{release}
+Requires: %{name}-libs = %{version}-%{release}
 
 %description gpfs
 Brian Finley's HPC Goodies for GPFS
 
+
 %package ib
-Summary: HPC Goodies for Infiniband
+Summary: HPC Goodies for InfiniBand
 Group: Applications/System
-Requires: %{name} = %{version}-%{release}
+Requires: %{name}-libs = %{version}-%{release}
 
 %description ib
-Brian Finley's HPC Goodies for Infiniband
+Brian Finley's HPC Goodies for InfiniBand
+
 
 %package misc
 Summary: Miscellaneous HPC Goodies
 Group: Applications/System
-Requires: %{name} = %{version}-%{release}
+Requires: %{name}-libs = %{version}-%{release}
 
 %description misc
-Brian Finley's HPC Goodies
+Brian Finley's HPC Goodies (miscellaneous)
+
 
 %package uefi
 Summary: HPC Goodies for UEFI
 Group: Applications/System
-Requires: %{name} = %{version}-%{release}
+Requires: %{name}-libs = %{version}-%{release}
 
 %description uefi
 Brian Finley's HPC Goodies for UEFI
 
+
 %package xcat
 Summary: HPC Goodies for xCAT
 Group: Applications/System
-Requires: %{name} = %{version}-%{release}
+Requires: %{name}-libs = %{version}-%{release}
 
 %description xcat
 Brian Finley's HPC Goodies for xCAT
 
-%package all
-Summary: All HPC Goodies
-Group: Applications/System
-Requires: %{name} = %{version}-%{release}
-Requires: %{name}-cpu = %{version}-%{release}
-Requires: %{name}-gpfs = %{version}-%{release}
-Requires: %{name}-uefi = %{version}-%{release}
-Requires: %{name}-xcat = %{version}-%{release}
-Requires: %{name}-ib = %{version}-%{release}
-Requires: %{name}-misc = %{version}-%{release}
 
-%description all
-ALL of Brian Finley's HPC Goodies (installs all the other goodie bags).
+%package libs
+Summary: HPC Goodies shared library files
+Group: Applications/System
+
+%description libs
+Brian Finley's HPC Goodies library files
 
 
 %prep
@@ -100,8 +106,6 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-, root, root)
 %doc CREDITS LICENSE README TODO
-%{_sbindir}/mac_to_ipv6
-%{_prefix}/lib/%{name}/
 
 %files cpu
 %defattr(-, root, root)
@@ -117,17 +121,16 @@ rm -rf $RPM_BUILD_ROOT
 %files ib
 %defattr(-, root, root)
 %doc usr/share/doc/ib_arch_diags/*
-%{_sbindir}/get_root_guids
-%{_sbindir}/set_hca_firmware_update
-%{_sbindir}/test_hca_state
-%{_sbindir}/test_infiniband_fabric_info
-%{_sbindir}/test_infiniband_route_info
-%{_sbindir}/test_uefi_settings
+$(grep hpc-goodies-ib README.bin-files-by-package | sed 's/^hpc-goodies-ib/%{_sbindir}\//')
+    #XXX how to include a shell command within an rpm specfile %files
+    location
 
 %files misc
 %defattr(-, root, root)
 %{_sbindir}/p2p_label_maker_input_maker
 %{_sbindir}/vnc.setup_ssh_tunnel
+%{_sbindir}/hpc_system_size_calculator
+%{_sbindir}/mac_to_ipv6
 
 %files uefi
 %defattr(-, root, root)
@@ -138,7 +141,10 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-, root, root)
 %{_sbindir}/backup_lenovo-ethernet-switch
 %{_sbindir}/backup_xcatdb
-%{_sbindir}/rmax_cluster
+
+%files libs
+%defattr(-, root, root)
+%{_prefix}/lib/%{name}/
 
 %files all
 %defattr(-, root, root)
