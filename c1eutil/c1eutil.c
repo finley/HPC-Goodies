@@ -60,4 +60,8 @@ int main(int argc, char** argv) {
         }
         closedir(cpus);
     }
+    /* Consider adding code to tell user if they need to change BIOS
+     * setting to allow this support.  Or if their machine can't support
+     * it, then why.  -BEF-
+     */
 }
