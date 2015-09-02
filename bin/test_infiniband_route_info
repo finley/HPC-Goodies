@@ -5,6 +5,8 @@
 #   - created
 #   - credit also goes to Jarrod Johnson for his initial creation of a similar
 #     tool that lent credence to this concept
+#   2015.09.01 Brian Elliott Finley <bfinley@lenovo.com>
+#   - added additional help output
 #
 
 use Getopt::Long;
@@ -15,8 +17,8 @@ my $version = '0.1';
 GetOptions(
 
     "help"              => \my $help,
-    "client_nodes=s"    => \my $client_nodes,
-    "target_nodes=s"    => \my $target_nodes,
+    "client-nodes=s"    => \my $client_nodes,
+    "target-nodes=s"    => \my $target_nodes,
     "debug"             => \my $debug,
     "verbose"           => \my $verbose,
 
@@ -26,7 +28,20 @@ if ( defined $help ) {
     usage();
     exit 0;
 }
-
+elsif( ! $client_nodes ) {
+    usage();
+    print "\n";
+    print "Try:  --client_nodes NODE(s)\n";
+    print "\n";
+    exit 1;
+}
+elsif( ! $target_nodes ) {
+    usage();
+    print "\n";
+    print "Try:  --target_nodes NODE(s)\n";
+    print "\n";
+    exit 1;
+}
 
 my $cmd;
 
