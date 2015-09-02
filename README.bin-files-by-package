@@ -1,0 +1,36 @@
+#
+#   2015.09.02 Brian Elliott Finley <bfinley@lenovo.com>
+#   - genesis
+#
+#
+# This file is referenced by the RPM spec file and the debian/rules
+# file to determine which binaries to place in which sub-package.
+#
+#   Format:
+#   subpackagename  binfile
+#   othersubpackabename  otherbinfile
+#
+
+ib      get_root_guids
+ib      set_hca_firmware_update
+ib      test_hca_state
+ib      test_infiniband_fabric_info
+ib      test_infiniband_route_info
+ib      test_uefi_settings
+
+cpu     c1eutil
+cpu     set_dma_latency
+
+gpfs    test_gpfs_state
+
+misc    p2p_label_maker_input_maker
+misc    vnc.setup_ssh_tunnel
+misc    hpc_system_size_calculator
+misc    mac_to_ipv6
+
+uefi    get_uefi_settings
+uefi    set_uefi_to_best_recipe
+
+xcat    backup_lenovo-ethernet-switch
+xcat    backup_xcatdb
+
