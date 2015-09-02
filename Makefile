@@ -124,11 +124,11 @@ test_release:  tarball debs rpms
 	@echo "I'm about to upload the following files to:"
 	@echo "  ~/src/www.systemimager.org/testing/${package}/"
 	@echo "-----------------------------------------------------------------------"
-	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
+	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
 	@echo
 	@echo "Hit <Enter> to continue..."
 	@read i
-	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.* ~/src/www.systemimager.org/testing/${package}/
+	rsync -av --progress $(TOPDIR)/tmp/${package}*[-_]$(VERSION)*.* ~/src/www.systemimager.org/testing/${package}/
 	@echo
 	@echo "Now run:   cd ~/src/www.systemimager.org/ && make upload"
 	@echo
@@ -139,11 +139,11 @@ stable_release:  tarball debs rpms
 	@echo "I'm about to upload the following files to:"
 	@echo "  ~/src/www.systemimager.org/stable/${package}/"
 	@echo "-----------------------------------------------------------------------"
-	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
+	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
 	@echo
 	@echo "Hit <Enter> to continue..."
 	@read i
-	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.* ~/src/www.systemimager.org/stable/${package}/
+	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.* ~/src/www.systemimager.org/stable/${package}/
 	@echo
 	@echo "Now run:   cd ~/src/www.systemimager.org/ && make upload"
 	@echo
@@ -155,9 +155,9 @@ rpm:  rpms
 rpms:  tarball
 	@echo Bake them cookies, grandma!
 	rpmbuild -ta $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz
-	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-$(VERSION)-*.rpm $(TOPDIR)/tmp/
-	/bin/cp -i ${rpmbuild}/SRPMS/${package}-$(VERSION)-*.rpm	$(TOPDIR)/tmp/
-	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
+	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-*$(VERSION)-*.rpm $(TOPDIR)/tmp/
+	/bin/cp -i ${rpmbuild}/SRPMS/${package}-*$(VERSION)-*.rpm	$(TOPDIR)/tmp/
+	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
 
 .PHONY: deb
 deb:  debs
@@ -166,7 +166,7 @@ deb:  debs
 debs:  tarball
 	#ln $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz $(TOPDIR)/tmp/${package}_$(VERSION).orig.tar.xz
 	#cd $(TOPDIR)/tmp/${package}-$(VERSION) && debuild -us -uc
-	#/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]$(VERSION)*.*
+	#/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
 
 .PHONY: tarball
 tarball:  $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz.sign
