@@ -45,7 +45,9 @@ INIT_SCRIPTS	 = $(shell find $(TOPDIR)/etc/init.d/*)
 HALF_BAKED_FILES = $(shell find $(TOPDIR)/half-baked/*)
 DOC_FILES   	 = CREDITS LICENSE README TODO
 
-ALL_FILES		 = $(BINSCRIPTS) $(PKGLIBFILES) $(INIT_SCRIPTS) $(DOC_FILES) $(HALF_BAKED_FILES) Makefile VERSION hpc-goodies.spec
+PKG_PREP_FILES 	 = Makefile hpc-goodies.spec README.bin-files-by-package VERSION
+ALL_FILES		 = $(BINSCRIPTS) $(PKGLIBFILES) $(INIT_SCRIPTS) $(DOC_FILES) $(HALF_BAKED_FILES) $(PKG_PREP_FILES)
+
 
 .PHONY: all
 all:  $(SBINFILES) $(INIT_SCRIPTS)
@@ -177,16 +179,27 @@ $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz:	 $(ALL_FILES)
 	
 	@ echo ; echo "git stat . | egrep '^\s+modified:\s+'"
 	@git stat . | egrep '^\s+modified:\s+' \
-		&& (echo ; echo "Do you want cancel to commit these changes to this repo?"; read i ) \
+		&& (echo "WARN:  There are uncommitted changes to this repo."; echo "       Do you want cancel this build and commit them?"; read i ) \
 		|| true
 	
-	@(echo ; echo "Did you update the version in VERSION (currently set to $(VERSION))?"; read i )
+	@(echo ; echo "WARN:  Did you update the version in VERSION (currently set to $(VERSION))?"; read i )
 	
 	@git tag | grep -qw v$(VERSION) \
-		|| (echo "Do you want to cancel to tag this repo as v$(VERSION)?"; read i )
+		|| (echo "WARN:  Do you want to cancel to tag this repo as v$(VERSION)?"; read i )
 	
 	mkdir -p    $(TOPDIR)/tmp/
 	git clone . $(TOPDIR)/tmp/${package}-$(VERSION)/
+	#
+	# Use the latest Makefile and specfile for pre-release package testing
+
+	@echo "WARN: Including the following files from this directory in the tarball, whether"
+	@echo "      they are committed to the repo or not.  So be sure that these files are "
+	@echo "      committed before doing a release!"
+	@echo 
+	@echo "      $(PKG_PREP_FILES)"
+	@echo 
+	@/bin/cp  $(PKG_PREP_FILES) $(TOPDIR)/tmp/${package}-$(VERSION)
+	@read i
 	git log   > $(TOPDIR)/tmp/${package}-$(VERSION)/CHANGE.LOG
 	rm -fr      $(TOPDIR)/tmp/${package}-$(VERSION)/.git
 	perl -pi -e "s/^Version:.*/Version: $(VERSION)/" $(TOPDIR)/tmp/${package}-$(VERSION)/${package}.spec

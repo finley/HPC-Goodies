@@ -110,48 +110,38 @@ rm -rf $RPM_BUILD_ROOT
 %files cpu
 %defattr(-, root, root)
 %{_initrddir}/set_cpu_state
-%{_sbindir}/c1eutil
-%{_sbindir}/set_dma_latency
+%(grep -w ^cpu README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files gpfs
 %defattr(-, root, root)
 %{_initrddir}/gpfs_syslogging
-%{_sbindir}/test_gpfs_state
+%(grep -w ^gpfs README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files ib
 %defattr(-, root, root)
 %doc usr/share/doc/ib_arch_diags/*
-$(grep hpc-goodies-ib README.bin-files-by-package | sed 's/^hpc-goodies-ib/%{_sbindir}\//')
-    #XXX how to include a shell command within an rpm specfile %files
-    location
+%(grep -w ^ib README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files misc
 %defattr(-, root, root)
-%{_sbindir}/p2p_label_maker_input_maker
-%{_sbindir}/vnc.setup_ssh_tunnel
-%{_sbindir}/hpc_system_size_calculator
-%{_sbindir}/mac_to_ipv6
+%(grep -w ^misc README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files uefi
 %defattr(-, root, root)
-%{_sbindir}/get_uefi_settings
-%{_sbindir}/set_uefi_to_best_recipe
+%(grep -w ^uefi README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files xcat
 %defattr(-, root, root)
-%{_sbindir}/backup_lenovo-ethernet-switch
-%{_sbindir}/backup_xcatdb
+%(grep -w ^xcat README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files libs
 %defattr(-, root, root)
 %{_prefix}/lib/%{name}/
 
-%files all
-%defattr(-, root, root)
-%doc CREDITS LICENSE README TODO
-
 
 %changelog
 * Fri Sep 20 2013 Brian Elliott Finley <bfinley@lenovo.com>
 - created this spec file
+
+# vim:set tw=0 et ai ts=4:
 
