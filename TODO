@@ -1,3 +1,12 @@
+- "consider adding a "triggers" capability to set_cpu_state, so that
+  after making changes, any "trigger scripts" get executed for
+  post-processing.
+
+  In other words, you run set_cpu_state and it turns off hyperthreading,
+  then, a torque trigger script restarts torque so that the MOM reports
+  the right number of cores for scheduling.
+
+
 - "best practice configurations" via SSM and/or Puppet to include:
     - numad (maybe)
         - https://goo.gl/Kd1hB5
