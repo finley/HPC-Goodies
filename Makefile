@@ -45,8 +45,10 @@ INIT_SCRIPTS	 = $(shell find $(TOPDIR)/etc/init.d/*)
 HALF_BAKED_FILES = $(shell find $(TOPDIR)/half-baked/*)
 DOC_FILES   	 = CREDITS LICENSE README TODO
 
-PKG_PREP_FILES 	 = Makefile hpc-goodies.spec README.bin-files-by-package VERSION
-ALL_FILES		 = $(BINSCRIPTS) $(PKGLIBFILES) $(INIT_SCRIPTS) $(DOC_FILES) $(HALF_BAKED_FILES) $(PKG_PREP_FILES)
+RPM_PKG_FILES 	 = hpc-goodies.spec
+DEB_PKG_FILES 	 = $(shell find debian/*)
+COMMON_PKG_FILES = Makefile README.bin-files-by-package VERSION
+ALL_FILES		 = $(BINSCRIPTS) $(PKGLIBFILES) $(INIT_SCRIPTS) $(DOC_FILES) $(HALF_BAKED_FILES) $(COMMON_PKG_FILES) $(RPM_PKG_FILES) $(DEB_PKG_FILES)
 
 
 .PHONY: all
@@ -164,9 +166,9 @@ deb:  debs
 
 .PHONY: debs
 debs:  tarball
-	#ln $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz $(TOPDIR)/tmp/${package}_$(VERSION).orig.tar.xz
-	#cd $(TOPDIR)/tmp/${package}-$(VERSION) && debuild -us -uc
-	#/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
+	ln $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz $(TOPDIR)/tmp/${package}_$(VERSION).orig.tar.xz
+	cd $(TOPDIR)/tmp/${package}-$(VERSION) && debuild -us -uc
+	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
 
 .PHONY: tarball
 tarball:  $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz.sign
@@ -191,15 +193,32 @@ $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz:	 $(ALL_FILES)
 	git clone . $(TOPDIR)/tmp/${package}-$(VERSION)/
 	#
 	# Use the latest Makefile and specfile for pre-release package testing
+	
+	@echo '# deb pkg bits first'
+	@echo 'git log `git describe --tags --abbrev=0`..HEAD --oneline > /tmp/${package}.gitlog'
+	@echo 'while read line; do dch --newversion $(VERSION) "$$line"; done < /tmp/hpc-goodies.gitlog'
+	@echo 'dch --release "" --distribution stable --no-force-save-on-release'
+	@echo 'head debian/changelog'
+	@echo
+	@echo '# RPM bits next'
+	@echo 'perl -pi -e "s/^Version:.*/Version:      $(VERSION)/" hpc-goodies.spec'
+	@echo 'head hpc-goodies.spec'
+	@echo '# dont worry about changelog entries in spec file for now...  #vim hpc-goodies.spec'
+	@read i
 
 	@echo "WARN: Including the following files from this directory in the tarball, whether"
 	@echo "      they are committed to the repo or not.  So be sure that these files are "
 	@echo "      committed before doing a release!"
 	@echo 
-	@echo "      $(PKG_PREP_FILES)"
+	@echo "      $(COMMON_PKG_FILES)"
+	@echo "      $(RPM_PKG_FILES)"
+	@echo "      $(DEB_PKG_FILES)"
 	@echo 
-	@/bin/cp  $(PKG_PREP_FILES) $(TOPDIR)/tmp/${package}-$(VERSION)
+	@rsync -av $(COMMON_PKG_FILES) $(RPM_PKG_FILES) $(TOPDIR)/tmp/${package}-$(VERSION)
+	@rsync -av $(DEB_PKG_FILES)                     $(TOPDIR)/tmp/${package}-$(VERSION)/debian/
+	@echo "done..."
 	@read i
+
 	git log   > $(TOPDIR)/tmp/${package}-$(VERSION)/CHANGE.LOG
 	rm -fr      $(TOPDIR)/tmp/${package}-$(VERSION)/.git
 	perl -pi -e "s/^Version:.*/Version: $(VERSION)/" $(TOPDIR)/tmp/${package}-$(VERSION)/${package}.spec
@@ -207,6 +226,7 @@ $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz:	 $(ALL_FILES)
 	find  $(TOPDIR)/tmp/${package}-$(VERSION) -type d -exec chmod ug+rx {} \;
 	cd    $(TOPDIR)/tmp/ && tar -ch ${package}-$(VERSION) | xz > ${package}-$(VERSION).tar.xz
 	ls -l $(TOPDIR)/tmp/
+
 
 .PHONY: clean
 clean:	c1eutil_clean

@@ -1,0 +1,14 @@
+Source: hpc-goodies
+Section: admin
+Priority: optional
+Maintainer: Brian Elliott Finley <brian@thefinleys.com>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.3
+
+Package: hpc-goodies
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, bu, psg
+Description: ALL of Brian Finley's HPC Goodies (installs all the other goodie bags).
+ .
+ https://github.com/finley/HPC-Goodies/wiki
+
