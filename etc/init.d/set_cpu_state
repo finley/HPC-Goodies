@@ -16,6 +16,14 @@
 ### END INIT INFO
 
 #
+#   References:
+#   - https://software.intel.com/sites/default/files/comment/1716807/how-to-change-frequency-on-linux-pub.txt
+#   - https://wiki.archlinux.org/index.php/CPU_frequency_scaling
+#   - https://www.kernel.org/doc/Documentation/cpu-freq/index.txt
+#   - https://www.reddit.com/r/linux/comments/1hdogn/acpi_cpufreq_or_intel_pstates/
+#
+
+#
 # 2012.11.06 Brian Elliott Finley <bfinley@lenovo.com>
 #  - Created
 # 2013.02.25 Brian Elliott Finley <bfinley@lenovo.com>
@@ -24,48 +32,197 @@
 
 PATH=/usr/sbin:/sbin:/usr/bin:/bin
 
-#
-# Consider moving to /etc/hpc_goodies/hpc_goodies.functions, but for now
-# assume it's in the same directory as the script.
-#
 FUNCTIONS="/usr/lib/hpc-goodies/functions.sh"
 PROGNAME=$(basename $0)
-CONFIG=/etc/sysconfig/set_cpu_state
 
+if [ -d /etc/sysconfig/ ]; then
+    CONFIG=/etc/sysconfig/set_cpu_state
+        # RedHat and friends...
+elif [ -d /etc/default/ ]; then
+    CONFIG=/etc/default/set_cpu_state
+        # Debian and friends...
+fi
+
+########################################################################
+#
+#   BEGIN config defaults -- only used if not set in the $CONFIG file
+#
+GOVERNER=performance
+USE_TURBO=yes
+USE_HYPERTHREADING=no
+C1E=off
+C_STATE_LIMIT=2
+# MAX_FREQ and MIN_FREQ will both be auto-selected
+#
+#   END config defaults
+#
+########################################################################
+
+EXAMPLE_CONFIG="
+#
+#   Please edit this $PROGNAME config file to set these variables
+#   according to your preferences.  
+#   
+#   The indicated Default value will be used for any variable you do not
+#   set.  The defaults values represent the recommended best practice
+#   settings for most High Performance Computing systems.
+#
+
+#
+#GOVERNER=(conservative|ondemand|userspace|powersave|performance)
+#     Default: performance
+#
+#     The performance governer will aggressively jump processor cores up
+#     to MAX_FREQ when CPU load is detected, and will hesitantly drop
+#     processor cores down when load decreases.
+#
+#MAX_FREQ=2600000
+#     Default: Each processor's own highest possible frequency.
+#
+#     Best practice recommendation is to let this tool auto-choose each
+#     processor's highest possible frequency.
+#
+#     WARNING: If USE_TURBO is set to 'yes' (which is the default), it
+#     will override any MAX_FREQ value set here.
+#
+#MIN_FREQ=1200000
+#     Default: Each processor's own lowest possible frequency.
+#
+#     Best practice recommendation is to let this tool auto-choose each
+#     processor's lowest possible frequency.
+#
+#     WARNING: Setting this to your processor's highest frequency while
+#     turbo is in use (as set below), will yield non-expected results.  
+# 
+#     Mini-dissertation:  In order for cores to jump up into turbo
+#     frequencies, other cores must be able to temporarily drop down to
+#     lower frequencies to stay within the power envelope of the CPU
+#     package.  With all cores in a 100W processor package running at
+#     their highest non-turbo frequency (and therefore consuming 100% of
+#     the processor package's available power), if one core needs to
+#     consume 5W more power to jump into a turbo frequency, one or more
+#     other cores need to free up a total of 5W by dropping down to
+#     lower frequencies.  Once that one core drops back down to
+#     non-turbo frequencies, the other cores can jump back up to their
+#     own highest non-turbo frequency.  But at no time can the total
+#     power consumed by a processor package's cores consume more than
+#     100% of it's available power.  Now it all makes sense, right? ;-)
+#
+#USE_TURBO=(yes|no)
+#     Default: yes
+#
+#     Best practice recommendation from a sysadmin perspective is to
+#     leave Turbo Mode  _on_ at the BIOS or UEFI level.  That allows you
+#     to enable or disable it on the fly (without rebooting) at the OS
+#     level.
+#
+#     Best practice recommendation under most circumstances for High
+#     Performance Computing is to use turbo.
+#
+#USE_HYPERTHREADING=(yes|no)
+#     Default: no
+#
+#     Best practice recommendation from a sysadmin perspective is to
+#     leave Hyper-Threading _on_ at the BIOS or UEFI level.  That allows
+#     you to enable or disable it on the fly (without rebooting) at the
+#     OS level.
+#
+#     Best practice recommendation under most circumstances for High
+#     Performance Computing is to not use Hyper-Threading.
+#
+#C1E=(on|off)
+#     Default: off
+#
+#C_STATE_LIMIT=(off|0|1|2|3|4|5)
+#     Default: 2
+#
+#     Best practice recommendation for High Performance Computing is to
+#     set this to 2.
+#
+#     This setting limits how deep each core can go to sleep when it's
+#     not busy.  The deeper the sleep level a core goes into, the longer
+#     it takes it to wake to the desired level for performance.  The
+#     latency imposed by that level by level wake-up process can have a
+#     significant negative impact on the performance of certain codes
+#     and very notably low-latency network communication. 
+#
+"
 
 read_config() {
     if [ ! -e $CONFIG ]; then
-        echo "Please edit /etc/sysconfig/set_cpu_state to populate these variables"
-        echo "with appropriate values.  The values below are just examples.  Recommended"
-        echo "values for optimal performance under many circumstances are indicated."
-        echo 
-        echo "  GOVERNER=(conservative|ondemand|userspace|powersave|performance)"
-        echo "  #                                                   ^^^^^^^^^^^"
-        echo "  MAX_FREQ=(2601000)"
-        echo "  # Recommended:  If left blank, it will automatically be chosen."
-        echo "  #"
-        echo "  MIN_FREQ=2600000"
-        echo "  # Recommended:  If left blank, it will automatically be chosen."
-        echo "  #"
-        echo "  USE_TURBO=(yes|no)"
-        echo "  #          ^^^"
-        echo "  USE_HYPERTHREADING=(yes|no)"
-        echo "  #                       ^^"
-        echo "  C1E=(on|off)"
-        echo "  #       ^^^"
-        echo "  C_STATE_LIMIT=(off|0|1|2|3|4|5)"
-        echo "  #                      ^"
-        echo 
+        echo ""
+        echo "Please run the following command to create a default $PROGNAME"
+        echo "configuration file that you can edit to suit your needs:"
+        echo ""
+        echo "  $0 defaults"
+        echo ""
+        echo "If you are seeing this message, it means you don't already have a"
+        echo "configuration file, so you don't have to worry about overwriting it. ;-)"
+        echo ""
+
         exit 0
     fi
 
-    . /etc/sysconfig/set_cpu_state
+    . $CONFIG
     . $FUNCTIONS
+
+    modprobe acpi_cpufreq
 }
+
+
+create_default_config_file() {
+    echo ""
+    echo "Creating a default $PROGNAME configuration file that you can edit to suit your"
+    echo "needs.  No changes are necessary for most HPC environments -- just accept the defaults."
+    echo ""
+    echo "Here is the location of your new config file:"
+    echo ""
+    echo "    $CONFIG"
+    echo ""
+    echo ""
+    echo "After editing, try running:"
+    echo ""
+    echo "  $0 status"
+    echo ""
+    echo "to see the before state.  Then run:"
+    echo ""
+    echo "  $0 start"
+    echo ""
+    echo "to apply your settings.  Lastly, try running:"
+    echo ""
+    echo "  $0 status"
+    echo ""
+    echo "again to see the changes in the after state."
+    echo ""
+
+    echo "$EXAMPLE_CONFIG" > $CONFIG
+    
+    exit 0
+}
+
 
 start() {
 
     read_config
+
+    ######################################################################## 
+    #
+    # BEGIN Normalize options
+    #
+    echo $USE_TURBO | egrep -q -i '(yes|on|enabled|engaged)'
+    if [ $? -eq 0 ]; then
+        USE_TURBO=yes
+    fi
+
+    echo $C1E_STATE | egrep -q -i '(yes|on|enabled|engaged)'
+    if [ $? -eq 0 ]; then
+        C1E_STATE=on
+    fi
+    #
+    # END Normalize options
+    #
+    ######################################################################## 
+
 
     # Set this first, so that the other settings apply to the
     # hyperthread cores also.
@@ -73,16 +230,20 @@ start() {
 
     set_GOVERNER
     set_MIN_FREQ
+    #
+    # set_MAX_FREQ is called by set_TURBO_ON and set_TURBO_OFF
+    #
 
-    echo $USE_TURBO | egrep -q -i '(yes|on|enabled|engaged)'
-    if [ $? -eq 0 ]; then
+    if [ "$USE_TURBO" = "yes" ]; then
+        if [ ! -z $MAX_FREQ ]; then
+            echo "$PROGNAME INFO: With USE_TURBO=yes, any value set for MAX_FREQ will be overridden."
+        fi
         set_TURBO_ON
     else
-        set_MAX_FREQ
+        set_TURBO_OFF
     fi
 
-    echo $C1E_STATE | egrep -q -i '(yes|on|enabled|engaged)'
-    if [ $? -eq 0 ]; then
+    if [ "$C1E_STATE" = "on" ]; then
         set_C1E_ENABLED
     else
         set_C1E_DISABLED
@@ -90,6 +251,7 @@ start() {
 
     set_C_STATE_LIMIT
 }
+
 
 status() {
 
@@ -101,8 +263,11 @@ status() {
     get_CPU_TOTAL_REAL_CORES
     echo "Total Real Cores:      $my_CPU_TOTAL_REAL_CORES_COUNT"
 
-    get_GOVERNER_ACTIVE
-    echo "$my_GOVERNER_ACTIVE" | while read line
+    get_CPUFREQ_SCALING_DRIVER
+    echo "Scaling Driver:        $my_SCALING_DRIVER"
+
+    get_SCALING_GOVERNER
+    echo "$my_SCALING_GOVERNER" | while read line
     do
         echo "Scaling Governer:      $line"
     done
@@ -110,17 +275,17 @@ status() {
     get_TURBO_HW_STATE
     echo "Turbo in HW:           $my_TURBO_HW_STATE"
 
-    get_TURBO_ENGAGED
-    echo "Turbo in OS:           $my_TURBO_ENGAGED"
+    get_TURBO_OS_STATE
+    echo "Turbo in OS:           $my_TURBO_OS_STATE"
 
-    get_MAX_FREQ_ACTIVE
-    echo "$my_MAX_FREQ_ACTIVE" | while read line
+    get_SCALING_MAX_FREQ_state
+    echo "$my_SCALING_MAX_FREQ_state" | while read line
     do
         echo "MAX Freq Setting:      $line"
     done
 
-    get_MIN_FREQ_ACTIVE
-    echo "$my_MIN_FREQ_ACTIVE" | while read line
+    get_SCALING_MIN_FREQ_state
+    echo "$my_SCALING_MIN_FREQ_state" | while read line
     do
         echo "MIN Freq Setting:      $line"
     done
@@ -163,6 +328,9 @@ case "$1" in
         # Not necessary to read config here, and allows for running on a
         # node that does not yet have a config. -BEF-
         status
+	;;
+    defaults)
+        create_default_config_file
 	;;
     *)
 	echo "Usage: $PROGNAME {start|stop|restart|status}"
