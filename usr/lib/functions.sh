@@ -16,7 +16,7 @@ CPUINFO_MAX_FREQ_file="/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
 CPUINFO_MIN_FREQ_file="/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq"
 
 
-get_CPUFREQ_SCALING_DRIVER() {
+get_SCALING_DRIVER() {
     if [ -e $SCALING_DRIVER_file ]; then
         my_SCALING_DRIVER=$(cat $SCALING_DRIVER_file)
             #
@@ -33,7 +33,7 @@ get_CPUFREQ_SCALING_DRIVER() {
 
 get_TURBO_HW_STATE() {
 
-    get_CPUFREQ_SCALING_DRIVER
+    get_SCALING_DRIVER
 
     if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
 
@@ -342,23 +342,31 @@ set_TURBO_ON() {
 
 
 set_TURBO_OFF() {
+    get_SCALING_DRIVER
 
-    #
-    # Set max freq to the proper freq for non-turbo use.
-    #
-    #   - If not set by the user, set_MAX_FREQ will automatically
-    #     choose a proper freq.
-    # 
-    set_MAX_FREQ
+    if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
 
-    get_TURBO_HW_STATE
-
-    if [ "$my_TURBO_HW_STATE" = "On" ]; then
-
-        if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
+        set_MAX_FREQ
+            # must do this first, for intel_pstate
+        get_TURBO_HW_STATE
+        if [ "$my_TURBO_HW_STATE" = "On" ]; then
             echo -n 1 > $INTEL_PSTATE_NO_TURBO_file
+                # make it go away!!!
         fi
 
+    elif [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
+
+        #
+        # Set max freq to the proper freq for non-turbo use.
+        #
+        #   - If not set by the user, set_MAX_FREQ will automatically
+        #     choose a proper freq.
+        # 
+        if [ ! -z $MAX_FREQ ]; then
+            MAX_FREQ=$(echo $MAX_FREQ | sed 's/010/000/')
+        fi
+        set_MAX_FREQ
+            # this _is_ how you turn turbo off with acpi-cpufreq
     fi
 }
 

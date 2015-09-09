@@ -240,6 +240,10 @@ start() {
         fi
         set_TURBO_ON
     else
+        if [ ! -z $MAX_FREQ ]; then
+            echo $MAX_FREQ | grep -q 010 && \
+                echo "$PROGNAME INFO: With USE_TURBO=no, any 010 value in MAX_FREQ will be changed to 000."
+        fi
         set_TURBO_OFF
     fi
 
@@ -263,7 +267,7 @@ status() {
     get_CPU_TOTAL_REAL_CORES
     echo "Total Real Cores:      $my_CPU_TOTAL_REAL_CORES_COUNT"
 
-    get_CPUFREQ_SCALING_DRIVER
+    get_SCALING_DRIVER
     echo "Scaling Driver:        $my_SCALING_DRIVER"
 
     get_SCALING_GOVERNER
