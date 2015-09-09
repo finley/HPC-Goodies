@@ -188,8 +188,8 @@ get_CPU_TOTAL_REAL_CORES() {
 
 
 get_CPU_OFFLINE() {
-	my_CPU_OFFLINE_COUNT=$(grep -w 1 /sys/devices/system/cpu/cpu*/online | wc -l)
-	my_CPU_OFFLINE_LIST=$(grep -w 1 /sys/devices/system/cpu/cpu*/online | wc -l)
+	my_CPU_OFFLINE_COUNT=$(grep -w 0 /sys/devices/system/cpu/cpu*/online | wc -l)
+	my_CPU_OFFLINE_LIST=$(grep -w 0 /sys/devices/system/cpu/cpu*/online)
 }
 
 

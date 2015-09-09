@@ -2,15 +2,15 @@
 #
 # set_cpu_state
 #
-# chkconfig: 345 99 99
+# chkconfig: 345 03 97
 # description:	Set CPU Frequency States
 #
 ### BEGIN INIT INFO
 # Provides: set_cpu_state
 # Required-Start: 
 # Required-Stop:
-# Default-Start: 99
-# Default-Stop: 99
+# Default-Start: 03
+# Default-Stop: 97
 # Short-Description: start and stop set_cpu_state
 # Description: Start and stop set_cpu_state
 ### END INIT INFO
