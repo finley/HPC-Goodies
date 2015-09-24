@@ -6,7 +6,7 @@
 # description:	Starts and stops gpfs syslogging
 #
 ### BEGIN INIT INFO
-# Provides: iptables
+# Provides: gpfs_syslogging
 # Required-Start:
 # Required-Stop:
 # Default-Start: 3
