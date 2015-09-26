@@ -1,18 +1,18 @@
-#!/bin/sh
+#!/bin/bash
 #
 # set_cpu_state
 #
-# chkconfig: 345 03 97
-# description:	Set CPU Frequency States
+# chkconfig: 2345 01 99
+# description:	Set CPU Frequency, Turbo, Hyper-Threading, and other states
 #
 ### BEGIN INIT INFO
 # Provides: set_cpu_state
 # Required-Start: 
 # Required-Stop:
-# Default-Start: 03
-# Default-Stop: 97
+# Default-Start:    2 3 4 5
+# Default-Stop: 0 1         6
 # Short-Description: start and stop set_cpu_state
-# Description: Start and stop set_cpu_state
+# Description:	Set CPU Frequency, Turbo, Hyper-Threading, and other states
 ### END INIT INFO
 
 #
@@ -43,20 +43,6 @@ elif [ -d /etc/default/ ]; then
         # Debian and friends...
 fi
 
-########################################################################
-#
-#   BEGIN config defaults -- only used if not set in the $CONFIG file
-#
-GOVERNER=performance
-USE_TURBO=yes
-USE_HYPERTHREADING=no
-C1E=off
-C_STATE_LIMIT=2
-# MAX_FREQ and MIN_FREQ will both be auto-selected
-#
-#   END config defaults
-#
-########################################################################
 
 EXAMPLE_CONFIG="
 #
@@ -68,73 +54,64 @@ EXAMPLE_CONFIG="
 #   settings for most High Performance Computing systems.
 #
 
+#GOVERNOR=(conservative|ondemand|userspace|powersave|performance)
+#     DEFAULT: ondemand    (on systems using 'acpi_cpufreq')
+#     DEFAULT: performance (on systems using 'intel_pstate')
 #
-#GOVERNER=(conservative|ondemand|userspace|powersave|performance)
-#     Default: performance
+#USE_TURBO=(yes|no)
+#     DEFAULT: yes
 #
-#     The performance governer will aggressively jump processor cores up
-#     to MAX_FREQ when CPU load is detected, and will hesitantly drop
-#     processor cores down when load decreases.
+#     BEST PRACTICE for SysAdmins: Leave Turbo Mode  _ON_ at the
+#     hardware level (BIOS or UEFI) and enable or disable it on the fly
+#     (without rebooting) via this tool.
+#
+#     BEST PRACTICE recommendation under most circumstances for High
+#     Performance Computing is to take the default of 'USE_TURBO=yes'.
+#
+#USE_HYPERTHREADING=(yes|no)
+#     DEFAULT: no
+#
+#     BEST PRACTICE for SysAdmins: Leave Hyper-Threading _ON_ at the
+#     BIOS or UEFI level, which allows you to enable or disable it on
+#     the fly (without rebooting) via this tool.
+#
+#     BEST PRACTICE for HPC systems:  under most circumstances for High
+#     Performance Computing, you should _NOT_ use Hyper-Threading. 
 #
 #MAX_FREQ=2600000
-#     Default: Each processor's own highest possible frequency.
-#
-#     Best practice recommendation is to let this tool auto-choose each
-#     processor's highest possible frequency.
+#     DEFAULT and best practice: Auto-select highest possible frequency.
 #
 #     WARNING: If USE_TURBO is set to 'yes' (which is the default), it
 #     will override any MAX_FREQ value set here.
 #
 #MIN_FREQ=1200000
-#     Default: Each processor's own lowest possible frequency.
-#
-#     Best practice recommendation is to let this tool auto-choose each
-#     processor's lowest possible frequency.
+#     DEFAULT and best practice: Auto-select lowest possible frequency.
 #
 #     WARNING: Setting this to your processor's highest frequency while
-#     turbo is in use (as set below), will yield non-expected results.  
+#     turbo is in use (see the 'USE_TURBO' setting), will yield
+#     non-expected results.  
 # 
-#     Mini-dissertation:  In order for cores to jump up into turbo
-#     frequencies, other cores must be able to temporarily drop down to
-#     lower frequencies to stay within the power envelope of the CPU
-#     package.  With all cores in a 100W processor package running at
-#     their highest non-turbo frequency (and therefore consuming 100% of
-#     the processor package's available power), if one core needs to
-#     consume 5W more power to jump into a turbo frequency, one or more
-#     other cores need to free up a total of 5W by dropping down to
-#     lower frequencies.  Once that one core drops back down to
-#     non-turbo frequencies, the other cores can jump back up to their
-#     own highest non-turbo frequency.  But at no time can the total
-#     power consumed by a processor package's cores consume more than
-#     100% of it's available power.  Now it all makes sense, right? ;-)
+#     DETAILS:  
 #
-#USE_TURBO=(yes|no)
-#     Default: yes
+#       In order for cores to jump up into turbo frequencies, other
+#       cores must be able to temporarily drop down to lower frequencies
+#       to stay within the power envelope of the CPU package.  With all
+#       cores in a 100W processor package running at their highest
+#       non-turbo frequency (and therefore consuming 100% of the
+#       processor package's available power), if some cores need to
+#       consume more power to jump into a turbo frequency, one or more
+#       other cores need to free up power by dropping down to lower
+#       frequencies.  
 #
-#     Best practice recommendation from a sysadmin perspective is to
-#     leave Turbo Mode  _on_ at the BIOS or UEFI level.  That allows you
-#     to enable or disable it on the fly (without rebooting) at the OS
-#     level.
-#
-#     Best practice recommendation under most circumstances for High
-#     Performance Computing is to use turbo.
-#
-#USE_HYPERTHREADING=(yes|no)
-#     Default: no
-#
-#     Best practice recommendation from a sysadmin perspective is to
-#     leave Hyper-Threading _on_ at the BIOS or UEFI level.  That allows
-#     you to enable or disable it on the fly (without rebooting) at the
-#     OS level.
-#
-#     Best practice recommendation under most circumstances for High
-#     Performance Computing is to not use Hyper-Threading.
+#       At no time can the total power consumed by a processor package's
+#       cores consume more than 100% of it's available power.  Now it
+#       all makes sense, right? ;-)
 #
 #C1E=(on|off)
-#     Default: off
+#     DEFAULT and HPC Best Practice: off
 #
 #C_STATE_LIMIT=(off|0|1|2|3|4|5)
-#     Default: 2
+#     DEFAULT and HPC Best Practice: 2
 #
 #     Best practice recommendation for High Performance Computing is to
 #     set this to 2.
@@ -165,8 +142,6 @@ read_config() {
 
     . $CONFIG
     . $FUNCTIONS
-
-    modprobe acpi_cpufreq
 }
 
 
@@ -204,31 +179,52 @@ create_default_config_file() {
 start() {
 
     read_config
+    read_CPU_MAP_CACHE
 
     ######################################################################## 
     #
     # BEGIN Normalize options
     #
-    echo $USE_TURBO | egrep -q -i '(yes|on|enabled|engaged)'
-    if [ $? -eq 0 ]; then
+
+    ANTI_REGEX='off|no|disabled|disengaged'
+    PRO_REGEX='yes|on|enabled|engaged'
+
+    echo $USE_TURBO | egrep -qw -i "($ANTI_REGEX)"
+    if [ $? -eq 1 -o -z "$USE_TURBO" ]; then
         USE_TURBO=yes
+            # if not clearly a no  or  if not set, turn on
     fi
 
-    echo $C1E_STATE | egrep -q -i '(yes|on|enabled|engaged)'
-    if [ $? -eq 0 ]; then
-        C1E_STATE=on
+    echo $USE_HYPERTHREADING | egrep -qw -i "($PRO_REGEX)"
+    if [ $? -eq 1 -o -z "$USE_HYPERTHREADING" ]; then
+        USE_HYPERTHREADING=no
+            # if not clearly a yes  or  if not set, turn off
     fi
+
+    echo $C_STATE_LIMIT | egrep -qw -i "($ANTI_REGEX|[0-9])"
+    if [ $? -eq 1 -o -z "$C_STATE_LIMIT" ]; then
+        C_STATE_LIMIT=2
+            # if not set to a valid value  or  if not set, set to 2
+    fi
+
+    echo $C1E_STATE | egrep -qw -i "($PRO_REGEX)"
+    if [ $? -eq 1 -o -z "$C1E_STATE" ]; then
+        C1E_STATE=off
+            # if not clearly a yes  or  if not set, turn off
+    fi
+
     #
     # END Normalize options
     #
     ######################################################################## 
 
-
-    # Set this first, so that the other settings apply to the
-    # hyperthread cores also.
+    # Set this first before setting any freq settings, so that the other
+    # settings apply to the hyperthread cores also.
     set_HYPERTHREADING_STATE
 
-    set_GOVERNER
+    set_LIMIT_REAL_CORE_COUNT
+
+    set_GOVERNOR
     set_MIN_FREQ
     #
     # set_MAX_FREQ is called by set_TURBO_ON and set_TURBO_OFF
@@ -261,26 +257,40 @@ status() {
 
     read_config
 
-    get_CPU_SOCKETS
-    echo "Sockets:               $my_CPU_SOCKETS_COUNT"
+    get_SOCKETS
+    echo "Sockets:               $my_SOCKETS_COUNT"
 
-    get_CPU_TOTAL_REAL_CORES
-    echo "Total Real Cores:      $my_CPU_TOTAL_REAL_CORES_COUNT"
+    get_TURBO_HW_STATE
+    echo "Turbo Boost in HW:     $my_TURBO_HW_STATE"
+
+    get_TURBO_OS_STATE
+    echo "Turbo Boost in OS:     $my_TURBO_OS_STATE"
+
+    get_HYPERTHREADING_STATE
+    echo "Hyper-Threading in HW: $my_HYPERTHREADING_HW_STATE" 
+    echo "Hyper-Threading in OS: $my_HYPERTHREADING_OS_STATE" 
+
+    get_TOTAL_REAL_CORES
+    echo "Total Real Cores:      $my_TOTAL_REAL_CORES_COUNT"
+
+    get_TOTAL_HYPERTHREADING_CORES
+    echo "Total Hyper Cores:     $my_TOTAL_HYPERTHREADING_CORES_COUNT"
+
+    get_ACTIVE_REAL_CORES
+    echo "Active Real Cores:     $my_ACTIVE_REAL_CORES_COUNT"
+    echo "Active Hyper Cores:    $my_ACTIVE_HYPERTHREAD_CORES_COUNT"
 
     get_SCALING_DRIVER
-    echo "Scaling Driver:        $my_SCALING_DRIVER"
+    echo -n "Scaling Driver:        $my_SCALING_DRIVER"
+    if [ $my_SCALING_DRIVER != 'acpi_cpufreq' ]; then
+        echo                                       "  (NOTE: acpi_cpufreq is recommended for best control)"
+    fi
 
-    get_SCALING_GOVERNER
-    echo "$my_SCALING_GOVERNER" | while read line
+    get_SCALING_GOVERNOR
+    echo "$my_SCALING_GOVERNOR" | while read line
     do
         echo "Scaling Governer:      $line"
     done
-
-    get_TURBO_HW_STATE
-    echo "Turbo in HW:           $my_TURBO_HW_STATE"
-
-    get_TURBO_OS_STATE
-    echo "Turbo in OS:           $my_TURBO_OS_STATE"
 
     get_SCALING_MAX_FREQ_state
     echo "$my_SCALING_MAX_FREQ_state" | while read line
@@ -294,13 +304,6 @@ status() {
         echo "MIN Freq Setting:      $line"
     done
 
-    get_HYPERTHREADING_STATE
-    get_CPU_ACTIVE_REAL_CORES
-    echo "HyperThreading in HW:  $my_HYPERTHREADING_HW_STATE" 
-    echo "HyperThreading in OS:  $my_HYPERTHREADING_OS_STATE" 
-    echo "Active Real Cores:     $my_CPU_ACTIVE_REAL_CORES_COUNT"
-    echo "Active Hyper Cores:    $my_CPU_ACTIVE_HYPERTHREAD_CORES_COUNT"
-
     get_C_STATE_LIMIT
     echo "C State Limit:         $my_C_STATE_LIMIT"
 
@@ -309,23 +312,16 @@ status() {
     do
         echo "C1E State:             $line"
     done
-    # Maybe do the below with a "details" option later?
-    #echo "$my_C1E_STATE" | while read line
-    #do
-    #    echo "C1E State:             $line"
-    #done
 }
 
 
 case "$1" in
     start)
-        read_config
 	    start
 	;;
     stop)
 	;;
     restart)
-        read_config
 	    start
 	;;
     status)
