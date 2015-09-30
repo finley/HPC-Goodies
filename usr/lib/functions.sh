@@ -139,28 +139,34 @@ get_MIN_FREQ_AVAILABLE() {
 }
 
 
-get_ACTIVE_REAL_CORES() {
-
-    my_ACTIVE_REAL_CORES_LIST=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list \
-        | sed -e 's/-.*//' \
-        | sort -u
+get_ACTIVE_REAL_AND_HYPERTHREADING_CORES() {
+    my_ACTIVE_REAL_AND_HYPERTHREADING_CORES_LIST=$(
+        /bin/ls /sys/devices/system/cpu/cpu*/topology/thread_siblings_list \
+        | sed -e 's/.*cpu\/cpu//' -e 's/\/.*/ /' \
+        | tr -d '\n' \
         )
-
-    my_ACTIVE_REAL_CORES_COUNT=$(echo "$my_ACTIVE_REAL_CORES_LIST" | grep . | wc -l)
-        # the 'grep .' bit eliminates blank lines, that would be counted by wc -l
 }
 
 
-get_ACTIVE_HYPERTHREAD_CORES() {
-    # This is the list of active hyperthread cores
-    my_ACTIVE_HYPERTHREAD_CORES_LIST=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list \
-        | egrep '[0-9]+[^0-9]+[0-9]+' \
-        | sed -r -e 's/^[0-9]+[^0-9]+//' \
-        | sort -u
-        )
-    # This is the count of active hyperthread cores
-    my_ACTIVE_HYPERTHREAD_CORES_COUNT=$(echo "$my_ACTIVE_HYPERTHREAD_CORES_LIST" | grep . | wc -l)
-        # the 'grep .' bit eliminates blank lines, that would be counted by wc -l
+get_ACTIVE_REAL_CORES() {
+
+    get_ACTIVE_REAL_AND_HYPERTHREADING_CORES
+
+    my_REGEX=$(echo $my_ACTIVE_REAL_AND_HYPERTHREADING_CORES_LIST | sed -e 's/ /|/g' -e 's/|$//')
+
+    my_ACTIVE_REAL_CORES_LIST=$(echo  $cached_CORE_TOTAL_REAL_CORES_LIST | tr ' ' '\n' | egrep    -w "($my_REGEX)")
+    my_ACTIVE_REAL_CORES_COUNT=$(echo $cached_CORE_TOTAL_REAL_CORES_LIST | tr ' ' '\n' | egrep -c -w "($my_REGEX)")
+}
+
+
+get_ACTIVE_HYPERTHREADING_CORES() {
+
+    get_ACTIVE_REAL_AND_HYPERTHREADING_CORES
+
+    my_REGEX=$(echo $my_ACTIVE_REAL_AND_HYPERTHREADING_CORES_LIST | sed -e 's/ /|/g' -e 's/|$//')
+    
+    my_ACTIVE_HYPERTHREADING_CORES_LIST=$(echo  $cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST | tr ' ' '\n' | egrep    -w "($my_REGEX)")
+    my_ACTIVE_HYPERTHREADING_CORES_COUNT=$(echo $cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST | tr ' ' '\n' | egrep -c -w "($my_REGEX)")
 }
 
 
@@ -214,8 +220,8 @@ get_CORE_OFFLINE() {
 
 get_HYPERTHREADING_STATE() {
   
-	get_ACTIVE_HYPERTHREAD_CORES
-    if [ "$my_ACTIVE_HYPERTHREAD_CORES_COUNT" -eq "0" ]; then
+	get_ACTIVE_HYPERTHREADING_CORES
+    if [ "$my_ACTIVE_HYPERTHREADING_CORES_COUNT" -eq "0" ]; then
         my_HYPERTHREADING_OS_STATE=Off
     else
         my_HYPERTHREADING_OS_STATE=On
@@ -279,9 +285,9 @@ set_ALL_REAL_CORES_on() {
 
 set_HYPERTHREADING_OFF() {
 
-	get_ACTIVE_HYPERTHREAD_CORES
+	get_ACTIVE_HYPERTHREADING_CORES
 
-    for core in $my_ACTIVE_HYPERTHREAD_CORES_LIST
+    for core in $my_ACTIVE_HYPERTHREADING_CORES_LIST
     do
         # turn it off
         echo -n 0 > /sys/devices/system/cpu/cpu${core}/online
