@@ -256,6 +256,7 @@ start() {
 status() {
 
     read_config
+    read_CPU_MAP_CACHE
 
     get_SOCKETS
     echo "Sockets:               $my_SOCKETS_COUNT"
@@ -278,7 +279,7 @@ status() {
 
     get_ACTIVE_REAL_CORES
     echo "Active Real Cores:     $my_ACTIVE_REAL_CORES_COUNT"
-    echo "Active Hyper Cores:    $my_ACTIVE_HYPERTHREAD_CORES_COUNT"
+    echo "Active Hyper Cores:    $my_ACTIVE_HYPERTHREADING_CORES_COUNT"
 
     get_SCALING_DRIVER
     echo -n "Scaling Driver:        $my_SCALING_DRIVER"
