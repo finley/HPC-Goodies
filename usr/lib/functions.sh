@@ -140,7 +140,7 @@ get_MIN_FREQ_AVAILABLE() {
 
 
 get_ACTIVE_REAL_AND_HYPERTHREADING_CORES() {
-    my_ACTIVE_REAL_AND_HYPERTHREADING_CORES_LIST=$(
+    my_ACTIVE_REAL_AND_HYPERTHREADING_CORES_list=$(
         /bin/ls /sys/devices/system/cpu/cpu*/topology/thread_siblings_list \
         | sed -e 's/.*cpu\/cpu//' -e 's/\/.*/ /' \
         | tr -d '\n' \
@@ -152,10 +152,10 @@ get_ACTIVE_REAL_CORES() {
 
     get_ACTIVE_REAL_AND_HYPERTHREADING_CORES
 
-    my_REGEX=$(echo $my_ACTIVE_REAL_AND_HYPERTHREADING_CORES_LIST | sed -e 's/ /|/g' -e 's/|$//')
+    my_REGEX=$(echo $my_ACTIVE_REAL_AND_HYPERTHREADING_CORES_list | sed -e 's/ /|/g' -e 's/|$//')
 
-    my_ACTIVE_REAL_CORES_LIST=$(echo  $cached_CORE_TOTAL_REAL_CORES_LIST | tr ' ' '\n' | egrep    -w "($my_REGEX)")
-    my_ACTIVE_REAL_CORES_COUNT=$(echo $cached_CORE_TOTAL_REAL_CORES_LIST | tr ' ' '\n' | egrep -c -w "($my_REGEX)")
+    my_ACTIVE_REAL_CORES_list=$(echo  $cached_CORE_TOTAL_REAL_CORES_list | tr ' ' '\n' | egrep    -w "($my_REGEX)")
+    my_ACTIVE_REAL_CORES_count=$(echo $cached_CORE_TOTAL_REAL_CORES_list | tr ' ' '\n' | egrep -c -w "($my_REGEX)")
 }
 
 
@@ -163,19 +163,19 @@ get_ACTIVE_HYPERTHREADING_CORES() {
 
     get_ACTIVE_REAL_AND_HYPERTHREADING_CORES
 
-    my_REGEX=$(echo $my_ACTIVE_REAL_AND_HYPERTHREADING_CORES_LIST | sed -e 's/ /|/g' -e 's/|$//')
+    my_REGEX=$(echo $my_ACTIVE_REAL_AND_HYPERTHREADING_CORES_list | sed -e 's/ /|/g' -e 's/|$//')
     
-    my_ACTIVE_HYPERTHREADING_CORES_LIST=$(echo  $cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST | tr ' ' '\n' | egrep    -w "($my_REGEX)")
-    my_ACTIVE_HYPERTHREADING_CORES_COUNT=$(echo $cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST | tr ' ' '\n' | egrep -c -w "($my_REGEX)")
+    my_ACTIVE_HYPERTHREADING_CORES_list=$(echo  $cached_CORE_TOTAL_HYPERTHREADING_CORES_list | tr ' ' '\n' | egrep    -w "($my_REGEX)")
+    my_ACTIVE_HYPERTHREADING_CORES_count=$(echo $cached_CORE_TOTAL_HYPERTHREADING_CORES_list | tr ' ' '\n' | egrep -c -w "($my_REGEX)")
 }
 
 
 get_SOCKETS() {
-    my_SOCKETS_LIST=$(cat /sys/devices/system/cpu/cpu*/topology/physical_package_id  | sort -u)
-    my_SOCKETS_COUNT=$(echo "$my_SOCKETS_LIST" | grep . | wc -l)
+    my_SOCKETS_list=$(cat /sys/devices/system/cpu/cpu*/topology/physical_package_id  | sort -u)
+    my_SOCKETS_count=$(echo "$my_SOCKETS_list" | grep . | wc -l)
         # the 'grep .' bit eliminates blank lines, that would be counted by wc -l
 
-    for socket in $my_SOCKETS_LIST
+    for socket in $my_SOCKETS_list
     do
         my_CORES_BY_SOCKET[$socket]=$(grep -l $socket /sys/devices/system/cpu/cpu*/topology/physical_package_id | sed -e 's/.*cpu\/cpu//' -e 's/\/.*/ /' | tr -d '\n')
 
@@ -187,11 +187,11 @@ get_SOCKETS() {
 
 
 get_TOTAL_REAL_AND_HYPERTHREADING_CORES() {
-    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_COUNT=$(( $(/bin/ls /sys/devices/system/cpu/cpu*/online | grep . | wc -l) + 1 ))
+    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_count=$(( $(/bin/ls /sys/devices/system/cpu/cpu*/online | grep . | wc -l) + 1 ))
         # the 'grep .' bit eliminates blank lines, that would be counted by wc -l
     
-    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_LIST=$(/bin/ls /sys/devices/system/cpu/cpu*/online | sed -e 's/.*cpu\/cpu//' -e 's/\/.*/ /' | tr -d '\n')
-    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_LIST=$(echo "0 $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_LIST" | sed -r -e 's/^ +//' -e 's/ +$//')
+    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list=$(/bin/ls /sys/devices/system/cpu/cpu*/online | sed -e 's/.*cpu\/cpu//' -e 's/\/.*/ /' | sort -n | tr -d '\n')
+    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list=$(echo "0 $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list" | sed -r -e 's/^ +//' -e 's/ +$//')
 }
 
 
@@ -200,35 +200,35 @@ get_TOTAL_HYPERTHREADING_CORES() {
     get_TOTAL_REAL_AND_HYPERTHREADING_CORES
     get_TOTAL_REAL_CORES
 
-    my_TOTAL_HYPERTHREADING_CORES_COUNT=$(( $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_COUNT - $my_TOTAL_REAL_CORES_COUNT ))
+    my_TOTAL_HYPERTHREADING_CORES_count=$(( $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_count - $my_TOTAL_REAL_CORES_count ))
 }
 
 
 get_TOTAL_REAL_CORES() {
     get_SOCKETS
     my_CORES_PER_SOCKET=$(grep 'cpu cores' /proc/cpuinfo | sort -u | awk '{print $NF}')
-    my_TOTAL_REAL_CORES_COUNT=$(( $my_SOCKETS_COUNT * $my_CORES_PER_SOCKET ))
+    my_TOTAL_REAL_CORES_count=$(( $my_SOCKETS_count * $my_CORES_PER_SOCKET ))
 }
 
 
 get_CORE_OFFLINE() {
-	my_CORE_OFFLINE_COUNT=$(grep -w 0 /sys/devices/system/cpu/cpu*/online | grep . | wc -l)
+	my_CORE_OFFLINE_count=$(grep -w 0 /sys/devices/system/cpu/cpu*/online | grep . | wc -l)
         # the 'grep .' bit eliminates blank lines, that would be counted by wc -l
-	my_CORE_OFFLINE_LIST=$(grep -w 0 /sys/devices/system/cpu/cpu*/online)
+	my_CORE_OFFLINE_list=$(grep -w 0 /sys/devices/system/cpu/cpu*/online)
 }
 
 
 get_HYPERTHREADING_STATE() {
   
 	get_ACTIVE_HYPERTHREADING_CORES
-    if [ "$my_ACTIVE_HYPERTHREADING_CORES_COUNT" -eq "0" ]; then
+    if [ "$my_ACTIVE_HYPERTHREADING_CORES_count" -eq "0" ]; then
         my_HYPERTHREADING_OS_STATE=Off
     else
         my_HYPERTHREADING_OS_STATE=On
     fi
 
     get_TOTAL_HYPERTHREADING_CORES
-    if [ "$my_TOTAL_HYPERTHREADING_CORES_COUNT" -eq "0" ]; then
+    if [ "$my_TOTAL_HYPERTHREADING_CORES_count" -eq "0" ]; then
         my_HYPERTHREADING_HW_STATE=Off
     else
         my_HYPERTHREADING_HW_STATE=On
@@ -240,7 +240,7 @@ set_HYPERTHREADING_ON() {
 
     get_ACTIVE_REAL_CORES
 
-    for core in $my_ACTIVE_REAL_CORES_LIST
+    for core in $my_ACTIVE_REAL_CORES_list
     do
         sibling=${cached_THREAD_SIBLINGS_BY_CORE[$core]}
         if [ $sibling -ne 0 ]; then
@@ -262,7 +262,7 @@ set_ALL_REAL_and_HYPERTHREADING_CORES_on() {
 
 set_ALL_HYPERTHREADING_CORES_on() {
     
-    for core in $cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST
+    for core in $cached_CORE_TOTAL_HYPERTHREADING_CORES_list
     do
         if [ $core -ne 0 ]; then
             echo -n 1 > /sys/devices/system/cpu/cpu${core}/online
@@ -273,7 +273,7 @@ set_ALL_HYPERTHREADING_CORES_on() {
 
 set_ALL_REAL_CORES_on() {
     
-    for core in $cached_CORE_TOTAL_REAL_CORES_LIST
+    for core in $cached_CORE_TOTAL_REAL_CORES_list
     do
         if [ $core -ne 0 ]; then
             echo -n 1 > /sys/devices/system/cpu/cpu${core}/online
@@ -287,7 +287,7 @@ set_HYPERTHREADING_OFF() {
 
 	get_ACTIVE_HYPERTHREADING_CORES
 
-    for core in $my_ACTIVE_HYPERTHREADING_CORES_LIST
+    for core in $my_ACTIVE_HYPERTHREADING_CORES_list
     do
         # turn it off
         echo -n 0 > /sys/devices/system/cpu/cpu${core}/online
@@ -297,8 +297,7 @@ set_HYPERTHREADING_OFF() {
 
 set_HYPERTHREADING_STATE() {
 
-    echo $USE_HYPERTHREADING | egrep -q -i '(yes|on|enabled|engaged)'
-    if [ $? -eq 0 ]; then
+    if [ "$USE_HYPERTHREADING" = "yes" ]; then
         set_HYPERTHREADING_ON
     else
         set_HYPERTHREADING_OFF
@@ -497,7 +496,7 @@ set_C_STATE_LIMIT() {
 }
 
 
-set_LIMIT_REAL_CORE_COUNT() {
+set_LIMIT_REAL_CORE_count() {
     #
     # If core count limit is not evenly divisible by number of sockets, we
     # round up so that we have an even number of active cores per socket.
@@ -505,87 +504,100 @@ set_LIMIT_REAL_CORE_COUNT() {
     get_TOTAL_REAL_CORES
     get_TOTAL_HYPERTHREADING_CORES
 
-set -x
-    if [ -z "$LIMIT_REAL_CORES" ]; then
+    test ! -z $DEBUG && echo LIMIT_REAL_CORES $LIMIT_REAL_CORES_TO_COUNT
+    if [ -z "$LIMIT_REAL_CORES_TO_COUNT" ]; then
         set_ALL_REAL_CORES_on
     
-    elif [ "$LIMIT_REAL_CORES" -ge "$cached_CORE_TOTAL_REAL_CORES_COUNT" ]; then
+    elif [ "$LIMIT_REAL_CORES_TO_COUNT" -ge "$cached_CORE_TOTAL_REAL_CORES_count" ]; then
         # make sure all real cores are turned on
         set_ALL_REAL_CORES_on
 
-    elif [ "$LIMIT_REAL_CORES" -lt "$cached_CORE_TOTAL_REAL_CORES_COUNT" ]; then
+    elif [ "$LIMIT_REAL_CORES_TO_COUNT" -lt "$cached_CORE_TOTAL_REAL_CORES_count" ]; then
 
-        local cores_on_per_socket
-        local cores_to_turn_on
-        local cores_to_turn_off
+        local desired_real_cores_per_socket_count
+        local real_cores_to_turn_on_list
+        local real_cores_to_turn_off_list
+        local hyperthreading_cores_to_turn_on_list
+        local hyperthreading_cores_to_turn_off_list
 
-        cores_on_per_socket=$(awk "BEGIN {print $LIMIT_REAL_CORES / $cached_SOCKETS_COUNT}")
-        echo $cores_on_per_socket | grep '\.' 
-        if [ $? -eq 0 ]; then
-            let cores_on_per_socket+=1
+        desired_real_cores_per_socket_count=$(awk "BEGIN {print $LIMIT_REAL_CORES_TO_COUNT / $cached_SOCKETS_count}" | sed 's/\..*//')
+        if [ $desired_real_cores_per_socket_count -eq 0 ]; then
+            desired_real_cores_per_socket_count=1
         fi
-echo "cores_on_per_socket: $cores_on_per_socket"
-        for socket in $cached_SOCKETS_LIST
+        test ! -z $DEBUG && echo "desired_real_cores_per_socket_count: $desired_real_cores_per_socket_count"
+
+        #
+        # Set destiny for all real cores as on or off
+        #
+        for socket in $cached_SOCKETS_list
         do
-            for i in $(seq 1 $cores_on_per_socket)
+            test ! -z $DEBUG && echo "socket $socket"
+
+            local count=0
+            for core in $(seq 0 $cached_CORE_HIGHEST_CORE_NUMBER)
             do
+                if [ ${cached_SOCKET_BY_CORE[$core]} -eq $socket ]; then
+                    
+                    if [ "${cached_CORETYPE_BY_CORE[$core]}" = "real" ]; then
 
-                core=$(echo ${cached_CORES_BY_SOCKET[$socket]} | awk "{print \$$i}")
+                        if [ $count -lt $desired_real_cores_per_socket_count ]; then
+                            core_destiny[$core]="on"
+                            let count+=1
+                            test ! -z $DEBUG && echo "Core $core is real, and makes for $count of $desired_real_cores_per_socket_count cores desired on socket $socket, so it will be turned on."
+                        else
+                            core_destiny[$core]="off"
+                            test ! -z $DEBUG && echo "Core $core is real, but we already have $count of $desired_real_cores_per_socket_count cores desired on socket $socket, so it will be turned off."
+                        fi
+                    fi
+                fi
 
-                cores_to_turn_on="$cores_to_turn_on $core"
+                # increment count
+                let core+=1
             done
         done
 
-        # Because cores start at 0, we can start at the $cores_on_per_socket value
-        start=$cores_on_per_socket
-        for socket in $cached_SOCKETS_LIST
+        #
+        # Now set destiny for all hyper cores, based on HT on and real core sibling setting
+        #
+        for core in $(seq 0 $cached_CORE_HIGHEST_CORE_NUMBER)
         do
-echo "socket: $socket"
-echo "start: $start"
-echo "cached_CORE_CORES_PER_SOCKET: $cached_CORE_CORES_PER_SOCKET"
-            for i in $(seq $start $cached_CORE_CORES_PER_SOCKET)
-            do
-                core=$(echo ${cached_CORES_BY_SOCKET[$socket]} | awk "{print \$$i}")
+            if [ "${cached_CORETYPE_BY_CORE[$core]}" = "hyperthreading" ]; then
 
-                cores_to_turn_off="$cores_to_turn_off $core"
-            done
+                if [ "$USE_HYPERTHREADING" = "yes" ]; then
+
+                    # is this core's thread sibling's destiny set to on?
+                    this_hypercores_sibling=${cached_THREAD_SIBLINGS_BY_CORE[$core]}
+                    if [ "${core_destiny[$this_hypercores_sibling]}" = "on" ]; then
+                        core_destiny[$core]="on"
+                        test ! -z $DEBUG && echo "Core $core is hyperthreaded, sibling to real core $this_hypercores_sibling, and will be turned on as it's sibling will also be on."
+                    else
+                        core_destiny[$core]="off"
+                        test ! -z $DEBUG && echo "Core $core is hyperthreaded, sibling to real core $this_hypercores_sibling, and will be turned off as it's sibling will also be off."
+                    fi
+                else
+                    # HT is off altogether, just set destiny to off
+                    core_destiny[$core]="off"
+                    test ! -z $DEBUG && echo "Core $core is hyperthreaded and will be turned off. (USE_HYPERTHREADING is off)"
+                fi
+            fi
         done
 
-#XXX FIX ME!
-echo cores to turn on: $cores_to_turn_on
-echo cores to turn off: $cores_to_turn_off
-
-        for core in $cores_to_turn_on
+        #
+        # Now we send the core to it's destiny -BEF-
+        #
+        for core in $(seq 0 $cached_CORE_HIGHEST_CORE_NUMBER)
         do
-            # turn on the core
-            if [ $core -ne 0 ]; then
-                echo "echo -n 1 > /sys/devices/system/cpu/cpu${core}/online"
+            test ! -z $DEBUG && echo "Turning ${cached_CORETYPE_BY_CORE[$core]} core $core ${core_destiny[$core]}."
+            if [ -e "/sys/devices/system/cpu/cpu${core}/online" -a ${core_destiny[$core]} = "on" ]; then
+
                 echo -n 1 > /sys/devices/system/cpu/cpu${core}/online
-            fi
 
-            # and it's sibling (if it has one...), and if HT is on
-            if [ ! -z ${cached_THREAD_SIBLINGS_BY_CORE[$core]} -a "$USE_HYPERTHREADING" = "yes" -a ${cached_THREAD_SIBLINGS_BY_CORE[$core]} -ne 0 ]; then
-                echo "echo -n 1 > /sys/devices/system/cpu/cpu${cached_THREAD_SIBLINGS_BY_CORE[$core]}/online"
-                echo -n 1 > /sys/devices/system/cpu/cpu${cached_THREAD_SIBLINGS_BY_CORE[$core]}/online
-            fi
-        done
+            elif [ -e "/sys/devices/system/cpu/cpu${core}/online" ]; then
 
-        for core in $cores_to_turn_off
-        do
-            # turn off the core
-            if [ $core -ne 0 ]; then
-                echo "echo -n 0 > /sys/devices/system/cpu/cpu${core}/online"
                 echo -n 0 > /sys/devices/system/cpu/cpu${core}/online
-            fi
-
-            # and it's sibling (if it has one...)
-            if [ ! -z ${cached_THREAD_SIBLINGS_BY_CORE[$core]} -a ${cached_THREAD_SIBLINGS_BY_CORE[$core]} -ne 0 ]; then
-                echo "echo -n 0 > /sys/devices/system/cpu/cpu${cached_THREAD_SIBLINGS_BY_CORE[$core]}/online"
-                echo -n 0 > /sys/devices/system/cpu/cpu${cached_THREAD_SIBLINGS_BY_CORE[$core]}/online
             fi
         done
     fi
-set +x
 }
 
 
@@ -612,34 +624,50 @@ set_INITIALIZE_CPU_MAP_CACHE() {
     #
     # Document it
     #
-    echo "cached_SOCKETS_COUNT=$my_SOCKETS_COUNT"                                                                   >> $cpu_map_cache_FILE
-    echo "cached_SOCKETS_LIST='$my_SOCKETS_LIST'"                                                                   >> $cpu_map_cache_FILE
+    echo "cached_SOCKETS_count=$my_SOCKETS_count"                                                                   >> $cpu_map_cache_FILE
+    echo "cached_SOCKETS_list='$my_SOCKETS_list'"                                                                   >> $cpu_map_cache_FILE
     echo "cached_TURBO_HW_STATE=$my_TURBO_HW_STATE"                                                                 >> $cpu_map_cache_FILE
     echo "cached_HYPERTHREADING_HW_STATE=$my_HYPERTHREADING_HW_STATE"                                               >> $cpu_map_cache_FILE
-    echo "cached_CORE_CORES_PER_SOCKET=$my_CORES_PER_SOCKET"                                                        >> $cpu_map_cache_FILE
-    echo "cached_CORE_TOTAL_REAL_CORES_COUNT=$my_TOTAL_REAL_CORES_COUNT"                                            >> $cpu_map_cache_FILE
-    echo "cached_CORE_TOTAL_HYPERTHREADING_CORES_COUNT=$my_TOTAL_HYPERTHREADING_CORES_COUNT"                        >> $cpu_map_cache_FILE
-    echo "cached_CORE_TOTAL_REAL_AND_HYPERTHREADING_CORES_COUNT=$my_TOTAL_REAL_AND_HYPERTHREADING_CORES_COUNT"      >> $cpu_map_cache_FILE
-    echo "cached_CORE_TOTAL_REAL_AND_HYPERTHREADING_CORES_LIST='$my_TOTAL_REAL_AND_HYPERTHREADING_CORES_LIST'"      >> $cpu_map_cache_FILE
+    echo "cached_CORE_CORES_PER_SOCKET_count=$my_CORES_PER_SOCKET"                                                  >> $cpu_map_cache_FILE
+    echo "cached_CORE_TOTAL_REAL_CORES_count=$my_TOTAL_REAL_CORES_count"                                            >> $cpu_map_cache_FILE
+    echo "cached_CORE_TOTAL_HYPERTHREADING_CORES_count=$my_TOTAL_HYPERTHREADING_CORES_count"                        >> $cpu_map_cache_FILE
+    echo "cached_CORE_TOTAL_REAL_AND_HYPERTHREADING_CORES_count=$my_TOTAL_REAL_AND_HYPERTHREADING_CORES_count"      >> $cpu_map_cache_FILE
+    echo "cached_CORE_TOTAL_REAL_AND_HYPERTHREADING_CORES_list='$my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list'"      >> $cpu_map_cache_FILE
 
-    for socket in $my_SOCKETS_LIST
+    my_CORE_HIGHEST_CORE_NUMBER=$(echo $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list | awk '{print $NF}')
+    echo "cached_CORE_HIGHEST_CORE_NUMBER=$my_CORE_HIGHEST_CORE_NUMBER"                                             >> $cpu_map_cache_FILE
+
+    for core in $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list
     do
-        echo "cached_CORES_BY_SOCKET[$socket]='${my_CORES_BY_SOCKET[$socket]}'"                                     >> $cpu_map_cache_FILE
+        # cache socket by core
+        socket=$(cat /sys/devices/system/cpu/cpu${core}/topology/physical_package_id)
+        echo "cached_SOCKET_BY_CORE[${core}]=$socket"                                                               >> $cpu_map_cache_FILE
+
+        # cache coretype by core
+        realcore=$(  cat /sys/devices/system/cpu/cpu${core}/topology/thread_siblings_list | sed -e 's/-.*//')
+        hypercore=$( cat /sys/devices/system/cpu/cpu${core}/topology/thread_siblings_list | sed -e 's/.*-//')
+        if [ ! -z $hypercore -a $hypercore -eq $core ]; then
+            coretype="hyperthreading"
+
+        elif [ ! -z $realcore -a $realcore -eq $core ]; then
+            coretype="real"
+        fi
+        echo "cached_CORETYPE_BY_CORE[${core}]=$coretype"                                                           >> $cpu_map_cache_FILE
     done
 
-    for cpu in $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_LIST
+    for cpu in $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list
     do
         my_SIBLINGS=$(grep -w $cpu /sys/devices/system/cpu/cpu${cpu}/topology/thread_siblings_list | sed -e "s/${cpu}-//" -e "s/-${cpu}//" )
         echo "cached_THREAD_SIBLINGS_BY_CORE[$cpu]='$my_SIBLINGS'"                                                  >> $cpu_map_cache_FILE
     done
 
-    cached_CORE_TOTAL_REAL_CORES_LIST=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list | sort -u | sed -e 's/-.*/ /' | tr -d '\n')
-    cached_CORE_TOTAL_REAL_CORES_LIST=$(echo $cached_CORE_TOTAL_REAL_CORES_LIST | sed -r -e 's/^ +//' -e 's/ +$//')
-    echo "cached_CORE_TOTAL_REAL_CORES_LIST='$cached_CORE_TOTAL_REAL_CORES_LIST'"                                   >> $cpu_map_cache_FILE
+    cached_CORE_TOTAL_REAL_CORES_list=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list | sort -u | sed -e 's/-.*/ /' | tr -d '\n')
+    cached_CORE_TOTAL_REAL_CORES_list=$(echo $cached_CORE_TOTAL_REAL_CORES_list | sed -r -e 's/^ +//' -e 's/ +$//')
+    echo "cached_CORE_TOTAL_REAL_CORES_list='$cached_CORE_TOTAL_REAL_CORES_list'"                                   >> $cpu_map_cache_FILE
 
-    cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list | sort -u | sed -e 's/.*-/ /' | tr -d '\n')
-    cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST=$(echo $cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST | sed -r -e 's/^ +//' -e 's/ +$//')
-    echo "cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST='$cached_CORE_TOTAL_HYPERTHREADING_CORES_LIST'"               >> $cpu_map_cache_FILE
+    cached_CORE_TOTAL_HYPERTHREADING_CORES_list=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list | sort -u | sed -e 's/.*-/ /' | tr -d '\n')
+    cached_CORE_TOTAL_HYPERTHREADING_CORES_list=$(echo $cached_CORE_TOTAL_HYPERTHREADING_CORES_list | sed -r -e 's/^ +//' -e 's/ +$//')
+    echo "cached_CORE_TOTAL_HYPERTHREADING_CORES_list='$cached_CORE_TOTAL_HYPERTHREADING_CORES_list'"               >> $cpu_map_cache_FILE
 }
 
 

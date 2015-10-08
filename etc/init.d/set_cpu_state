@@ -198,7 +198,9 @@ start() {
     echo $USE_HYPERTHREADING | egrep -qw -i "($PRO_REGEX)"
     if [ $? -eq 1 -o -z "$USE_HYPERTHREADING" ]; then
         USE_HYPERTHREADING=no
-            # if not clearly a yes  or  if not set, turn off
+            # if not clearly a yes or if not set, turn off
+    else
+        USE_HYPERTHREADING=yes
     fi
 
     echo $C_STATE_LIMIT | egrep -qw -i "($ANTI_REGEX|[0-9])"
@@ -222,7 +224,7 @@ start() {
     # settings apply to the hyperthread cores also.
     set_HYPERTHREADING_STATE
 
-    set_LIMIT_REAL_CORE_COUNT
+    set_LIMIT_REAL_CORE_count
 
     set_GOVERNOR
     set_MIN_FREQ
@@ -259,7 +261,7 @@ status() {
     read_CPU_MAP_CACHE
 
     get_SOCKETS
-    echo "Sockets:               $my_SOCKETS_COUNT"
+    echo "Sockets:               $my_SOCKETS_count"
 
     get_TURBO_HW_STATE
     echo "Turbo Boost in HW:     $my_TURBO_HW_STATE"
@@ -272,14 +274,14 @@ status() {
     echo "Hyper-Threading in OS: $my_HYPERTHREADING_OS_STATE" 
 
     get_TOTAL_REAL_CORES
-    echo "Total Real Cores:      $my_TOTAL_REAL_CORES_COUNT"
+    echo "Total Real Cores:      $my_TOTAL_REAL_CORES_count"
 
     get_TOTAL_HYPERTHREADING_CORES
-    echo "Total Hyper Cores:     $my_TOTAL_HYPERTHREADING_CORES_COUNT"
+    echo "Total Hyper Cores:     $my_TOTAL_HYPERTHREADING_CORES_count"
 
     get_ACTIVE_REAL_CORES
-    echo "Active Real Cores:     $my_ACTIVE_REAL_CORES_COUNT"
-    echo "Active Hyper Cores:    $my_ACTIVE_HYPERTHREADING_CORES_COUNT"
+    echo "Active Real Cores:     $my_ACTIVE_REAL_CORES_count"
+    echo "Active Hyper Cores:    $my_ACTIVE_HYPERTHREADING_CORES_count"
 
     get_SCALING_DRIVER
     echo -n "Scaling Driver:        $my_SCALING_DRIVER"
