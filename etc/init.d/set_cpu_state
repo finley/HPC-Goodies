@@ -78,6 +78,42 @@ EXAMPLE_CONFIG="
 #     BEST PRACTICE for HPC systems:  under most circumstances for High
 #     Performance Computing, you should _NOT_ use Hyper-Threading. 
 #
+#LIMIT_REAL_CORES_TO_COUNT=NN
+#     DEFAULT: no limit -- use all available real cores
+#
+#     BEST PRACTICE for Everyone:  Use all your cores.
+#
+#     This option exists primarily to allow use of software licenced by
+#     the core, to run on a machine with a higher core count.  For
+#     example, if you have a shiny new 24 core machine, but your software is
+#     only licensed for 20 cores, you can LIMIT_REAL_CORES_TO_COUNT=20.
+#
+#     DETAILS:
+#
+#       This feature will balance the number of specified real cores
+#       across available sockets as best as is mathematically possible.
+#       For example, if a machine is limited to 20 cores, across 2x 12
+#       core sockets (24 real cores), it will enable 10 real cores on
+#       each socket, and turn off the rest.  And if you specify 21
+#       cores, one socket will get 11, and the other 10.
+#
+#       If USE_HYPERTHREADING is set to 'yes', then it will set each
+#       hyperthreaded core to match it's real core sibling's state
+#       (either on or off).  In the example above, with a limit of 20
+#       real cores, your result would be 20 real cores and 20
+#       hyperthreaded cores.
+#     
+#   DISCLAIMER:
+#
+#       There's actually no such thing as a 'hyperthreaded core' -- I
+#       just made that up. ;-)  But I'm calling them and treating them
+#       as such for the sake of simplicity in documentation and in the
+#       code.  There's no performance implication (positive or negative)
+#       to dealing with them in this way, but it does make the
+#       explanation simpler.  For details see:
+#       http://find_a_good_url_for_this...
+#
+#
 #MAX_FREQ=2600000
 #     DEFAULT and best practice: Auto-select highest possible frequency.
 #
@@ -260,24 +296,18 @@ status() {
     read_config
     read_CPU_MAP_CACHE
 
-    get_SOCKETS
-    echo "Sockets:               $my_SOCKETS_count"
-
-    get_TURBO_HW_STATE
-    echo "Turbo Boost in HW:     $my_TURBO_HW_STATE"
+    echo "Sockets:               $cached_SOCKETS_count"
+    echo "Turbo Boost in HW:     $cached_TURBO_HW_STATE"
 
     get_TURBO_OS_STATE
     echo "Turbo Boost in OS:     $my_TURBO_OS_STATE"
 
     get_HYPERTHREADING_STATE
-    echo "Hyper-Threading in HW: $my_HYPERTHREADING_HW_STATE" 
+    echo "Hyper-Threading in HW: $cached_HYPERTHREADING_HW_STATE"
     echo "Hyper-Threading in OS: $my_HYPERTHREADING_OS_STATE" 
 
-    get_TOTAL_REAL_CORES
-    echo "Total Real Cores:      $my_TOTAL_REAL_CORES_count"
-
-    get_TOTAL_HYPERTHREADING_CORES
-    echo "Total Hyper Cores:     $my_TOTAL_HYPERTHREADING_CORES_count"
+    echo "Total Real Cores:      $cached_CORE_TOTAL_REAL_CORES_count"
+    echo "Total Hyper Cores:     $cached_CORE_TOTAL_HYPERTHREADING_CORES_count"
 
     get_ACTIVE_REAL_CORES
     echo "Active Real Cores:     $my_ACTIVE_REAL_CORES_count"

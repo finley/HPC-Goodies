@@ -497,29 +497,31 @@ set_C_STATE_LIMIT() {
 
 
 set_LIMIT_REAL_CORE_count() {
-    #
-    # If core count limit is not evenly divisible by number of sockets, we
-    # round up so that we have an even number of active cores per socket.
-    #
+
+    local desired_real_cores_per_socket_count
+
     get_TOTAL_REAL_CORES
     get_TOTAL_HYPERTHREADING_CORES
 
-    test ! -z $DEBUG && echo LIMIT_REAL_CORES $LIMIT_REAL_CORES_TO_COUNT
+    test ! -z $DEBUG && echo LIMIT_REAL_CORES_TO_COUNT $LIMIT_REAL_CORES_TO_COUNT
     if [ -z "$LIMIT_REAL_CORES_TO_COUNT" ]; then
-        set_ALL_REAL_CORES_on
+        LIMIT_REAL_CORES_TO_COUNT=$cached_CORE_TOTAL_REAL_CORES_count
+    fi
     
-    elif [ "$LIMIT_REAL_CORES_TO_COUNT" -ge "$cached_CORE_TOTAL_REAL_CORES_count" ]; then
-        # make sure all real cores are turned on
-        set_ALL_REAL_CORES_on
+    if [ "$LIMIT_REAL_CORES_TO_COUNT" -ge "$cached_CORE_TOTAL_REAL_CORES_count" ]; then
+        for core in $(seq 0 $cached_CORE_HIGHEST_CORE_NUMBER)
+        do
+            if [ "${cached_CORETYPE_BY_CORE[$core]}" = "real" ]; then
+                core_destiny[$core]="on"
+            fi
+        done
 
     elif [ "$LIMIT_REAL_CORES_TO_COUNT" -lt "$cached_CORE_TOTAL_REAL_CORES_count" ]; then
 
-        local desired_real_cores_per_socket_count
-        local real_cores_to_turn_on_list
-        local real_cores_to_turn_off_list
-        local hyperthreading_cores_to_turn_on_list
-        local hyperthreading_cores_to_turn_off_list
-
+        #
+        # If core count limit is not evenly divisible by number of sockets, we
+        # round up so that we have an even number of active cores per socket.
+        #
         desired_real_cores_per_socket_count=$(awk "BEGIN {print $LIMIT_REAL_CORES_TO_COUNT / $cached_SOCKETS_count}" | sed 's/\..*//')
         if [ $desired_real_cores_per_socket_count -eq 0 ]; then
             desired_real_cores_per_socket_count=1
@@ -555,49 +557,52 @@ set_LIMIT_REAL_CORE_count() {
                 let core+=1
             done
         done
-
-        #
-        # Now set destiny for all hyper cores, based on HT on and real core sibling setting
-        #
-        for core in $(seq 0 $cached_CORE_HIGHEST_CORE_NUMBER)
-        do
-            if [ "${cached_CORETYPE_BY_CORE[$core]}" = "hyperthreading" ]; then
-
-                if [ "$USE_HYPERTHREADING" = "yes" ]; then
-
-                    # is this core's thread sibling's destiny set to on?
-                    this_hypercores_sibling=${cached_THREAD_SIBLINGS_BY_CORE[$core]}
-                    if [ "${core_destiny[$this_hypercores_sibling]}" = "on" ]; then
-                        core_destiny[$core]="on"
-                        test ! -z $DEBUG && echo "Core $core is hyperthreaded, sibling to real core $this_hypercores_sibling, and will be turned on as it's sibling will also be on."
-                    else
-                        core_destiny[$core]="off"
-                        test ! -z $DEBUG && echo "Core $core is hyperthreaded, sibling to real core $this_hypercores_sibling, and will be turned off as it's sibling will also be off."
-                    fi
-                else
-                    # HT is off altogether, just set destiny to off
-                    core_destiny[$core]="off"
-                    test ! -z $DEBUG && echo "Core $core is hyperthreaded and will be turned off. (USE_HYPERTHREADING is off)"
-                fi
-            fi
-        done
-
-        #
-        # Now we send the core to it's destiny -BEF-
-        #
-        for core in $(seq 0 $cached_CORE_HIGHEST_CORE_NUMBER)
-        do
-            test ! -z $DEBUG && echo "Turning ${cached_CORETYPE_BY_CORE[$core]} core $core ${core_destiny[$core]}."
-            if [ -e "/sys/devices/system/cpu/cpu${core}/online" -a ${core_destiny[$core]} = "on" ]; then
-
-                echo -n 1 > /sys/devices/system/cpu/cpu${core}/online
-
-            elif [ -e "/sys/devices/system/cpu/cpu${core}/online" ]; then
-
-                echo -n 0 > /sys/devices/system/cpu/cpu${core}/online
-            fi
-        done
     fi
+
+    #
+    # Now set destiny for all hyper cores, based on HT on and real core sibling setting
+    #
+    for core in $(seq 0 $cached_CORE_HIGHEST_CORE_NUMBER)
+    do
+        if [ "${cached_CORETYPE_BY_CORE[$core]}" = "hyperthreading" ]; then
+
+            if [ "$USE_HYPERTHREADING" = "yes" ]; then
+
+                # is this core's thread sibling's destiny set to on?
+                this_hypercores_sibling=${cached_THREAD_SIBLINGS_BY_CORE[$core]}
+                if [ "${core_destiny[$this_hypercores_sibling]}" = "on" ]; then
+                    core_destiny[$core]="on"
+                    test ! -z $DEBUG && echo "Core $core is hyperthreaded, sibling to real core $this_hypercores_sibling, and will be turned on as it's sibling will also be on."
+                else
+                    core_destiny[$core]="off"
+                    test ! -z $DEBUG && echo "Core $core is hyperthreaded, sibling to real core $this_hypercores_sibling, and will be turned off as it's sibling will also be off."
+                fi
+            else
+                # HT is off altogether, just set destiny to off
+                core_destiny[$core]="off"
+                test ! -z $DEBUG && echo "Core $core is hyperthreaded and will be turned off. (USE_HYPERTHREADING is off)"
+            fi
+        fi
+    done
+
+    #
+    # Now we send the core to it's destiny -BEF-
+    #
+    #   (get it -- core_file.  Ha! ;-)
+    local core_file
+    for core in $(seq 0 $cached_CORE_HIGHEST_CORE_NUMBER)
+    do
+        test ! -z $DEBUG && echo "Turning ${cached_CORETYPE_BY_CORE[$core]} core $core ${core_destiny[$core]}."
+        core_file="/sys/devices/system/cpu/cpu${core}/online"
+        if [ -e $core_file -a "${core_destiny[$core]}" = "on" ]; then
+
+            echo -n 1 > $core_file
+
+        elif [ -e $core_file ]; then
+
+            echo -n 0 > $core_file
+        fi
+    done
 }
 
 
