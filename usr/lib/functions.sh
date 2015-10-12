@@ -336,7 +336,7 @@ set_GOVERNOR() {
 
         get_SCALING_DRIVER
 
-        if [ "$my_SCALING_DRIVER" = "acpi_cpufreq" ]; then
+        if [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
             GOVERNOR="ondemand"
 
         elif [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
