@@ -10,9 +10,11 @@
 # Required-Start: 
 # Required-Stop:
 # Default-Start:    2 3 4 5
-# Default-Stop: 0 1         6
+# Default-Stop:
 # Short-Description: start and stop set_cpu_state
-# Description:	Set CPU Frequency, Turbo, Hyper-Threading, and other states
+# Description:	set_cpu_state will set CPU Frequency, Turbo,
+#               Hyper-Threading, and other states based on a 
+#               simple config file
 ### END INIT INFO
 
 #
@@ -315,9 +317,10 @@ status() {
 
     get_SCALING_DRIVER
     echo -n "Scaling Driver:        $my_SCALING_DRIVER"
-    if [ $my_SCALING_DRIVER != 'acpi_cpufreq' ]; then
-        echo                                       "  (NOTE: acpi_cpufreq is recommended for best control)"
+    if [ $my_SCALING_DRIVER != 'acpi-cpufreq' ]; then
+        echo -n "  (NOTE: acpi-cpufreq is recommended for best control)"
     fi
+    echo
 
     get_SCALING_GOVERNOR
     echo "$my_SCALING_GOVERNOR" | while read line
