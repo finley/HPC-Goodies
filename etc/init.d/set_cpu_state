@@ -325,7 +325,7 @@ status() {
     get_SCALING_GOVERNOR
     echo "$my_SCALING_GOVERNOR" | while read line
     do
-        echo "Scaling Governer:      $line"
+        echo "Scaling Governor:      $line"
     done
 
     get_SCALING_MAX_FREQ_state

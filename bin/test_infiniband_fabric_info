@@ -56,6 +56,11 @@ unless( $p2p or $p2p_errors or $uplink_summary or $uplink_details ) {
     exit 1;
 }
 
+if( defined $run_ibdiagnet ) {
+    my $cmd = "ibdiagnet --get_cable_info --output_path $ibdiagnet_dir";
+    !system($cmd) or die("Couldn't run $cmd");
+}
+
 if ( defined $p2p_errors and ! -e $ibdiagnet_log ) {
     usage();
     print qq(\nYou have specified "--p2p-errors", but the ibdiagnet log file doesn't exist:\n\n);
@@ -72,11 +77,6 @@ if ( ! -e $ibdiagnet_csv ) {
 
 }
 
-
-if( defined $run_ibdiagnet ) {
-    my $cmd = "ibdiagnet --get_cable_info --output_path $ibdiagnet_dir";
-    !system($cmd) or die("Couldn't run $cmd");
-}
 
 
 my $file;
