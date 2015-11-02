@@ -12,6 +12,7 @@
 #
 
 ib      get_root_guids
+ib      get_node_guids
 ib      set_hca_firmware_update
 ib      test_hca_state
 ib      test_infiniband_fabric_info
