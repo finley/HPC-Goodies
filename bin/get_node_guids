@@ -1,0 +1,34 @@
+#!/bin/bash
+
+#
+# 2012.11.20 Brian Elliott Finley <bfinley@lenovo.com>
+#   - created
+#
+
+NR=$1
+
+if [ -z $NR ]; then
+    echo "$0 NODERANGE"
+    exit 1
+fi
+
+
+for node in $(nodels $NR)
+do
+  REGEX="$REGEX|${node}"
+done
+
+# Strip off leading "|"
+REGEX=$(echo $REGEX | sed -e 's/^|//')
+REGEX="($REGEX)"
+
+#
+#  "ibnetdiscover -p" output looks like this:
+#
+# CA  1350  1 0x0002c90300fd0b11 4x FDR10 - SW    37  2 0x0002c90300752140 ( 'hercules-s04 HCA-1' - 'MF0;hercules-ibswa-9-1:SXX536/L20/U1' )
+# CA    14  1 0x0002c90300f93b11 4x FDR10 - SW    37  1 0x0002c90300752140 ( 'hercules-s02 HCA-1' - 'MF0;hercules-ibswa-9-1:SXX536/L20/U1' )
+# CA  2268  1 0x0002c90300f946e1 4x FDR10 - SW   117  9 0x0002c903007510c0 ( 'hercules-s17 HCA-1' - 'MF0;hercules-ibswa-8-1:SXX536/L20/U1' )
+# CA  1356  1 0x0002c90300f93c11 4x FDR10 - SW   117  8 0x0002c903007510c0 ( 'hercules-s15 HCA-1' - 'MF0;hercules-ibswa-8-1:SXX536/L20/U1' )
+
+ibnetdiscover -p | egrep '^CA ' | egrep $REGEX | perl -pi -e 's|CA\s+\d+\s+\d+\s+(\S+).*\( (.*) \)|$1    # $2|' | sort -k6
+
