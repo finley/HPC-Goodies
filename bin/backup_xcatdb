@@ -63,10 +63,16 @@ $PROGNAME >/dev/null
     echo
 
 else
-    BACKUP_DIR=/install/xcatdb_backups
+    BASE_DIR=/install/xcatdb_backups/xcatdb.$(hostname -s).$(date +"%Y.%m.%d")
+    INSTANCE=1
+    while [ -e "${BASE_DIR}-${INSTANCE}" ]; do
+        ((INSTANCE++))
+    done
+    BACKUP_DIR="${BASE_DIR}-${INSTANCE}"
+
     mkdir -p $BACKUP_DIR
-    echo dumpxCATdb -p ${BACKUP_DIR}/xcatdb.$(hostname -s).$(date +"%Y.%m.%d")
-    dumpxCATdb -p ${BACKUP_DIR}/xcatdb.$(hostname -s).$(date +"%Y.%m.%d")
+    echo dumpxCATdb -p ${BACKUP_DIR}
+    dumpxCATdb -p ${BACKUP_DIR}
 
     echo
     echo "To add this as a cron job, run the following command:"
