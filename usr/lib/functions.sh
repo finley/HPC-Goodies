@@ -22,12 +22,12 @@ CPUINFO_MIN_FREQ_file="/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq"
 #   BEGIN functions
 #
 get_SCALING_DRIVER() {
-    if [ ! -e $SCALING_DRIVER_file ]; then
+    if [ ! -e "$SCALING_DRIVER_file" ]; then
         modprobe acpi_cpufreq
-            # none loaded yet -- let's load our preferred driver
+            # if none loaded yet, let's load our preferred driver
     fi
 
-    if [ -e $SCALING_DRIVER_file ]; then
+    if [ -e "$SCALING_DRIVER_file" ]; then
         my_SCALING_DRIVER=$(cat $SCALING_DRIVER_file)
             #
             #   Possible scaling drivers as of 2015.09.07:
@@ -47,7 +47,7 @@ get_TURBO_HW_STATE() {
 
     if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
 
-        if [ -e $INTEL_PSTATE_NO_TURBO_file ]; then
+        if [ -e "$INTEL_PSTATE_NO_TURBO_file" ]; then
             my_TURBO_HW_STATE=On
         else
             my_TURBO_HW_STATE=Off
@@ -243,7 +243,7 @@ set_HYPERTHREADING_ON() {
     for core in $my_ACTIVE_REAL_CORES_list
     do
         sibling=${cached_THREAD_SIBLINGS_BY_CORE[$core]}
-        if [ $sibling -ne 0 ]; then
+        if [ "$sibling" -ne 0 ]; then
             echo -n 1 > /sys/devices/system/cpu/cpu${sibling}/online
         fi
         
@@ -264,7 +264,7 @@ set_ALL_HYPERTHREADING_CORES_on() {
     
     for core in $cached_CORE_TOTAL_HYPERTHREADING_CORES_list
     do
-        if [ $core -ne 0 ]; then
+        if [ "$core" -ne 0 ]; then
             echo -n 1 > /sys/devices/system/cpu/cpu${core}/online
         fi
     done
@@ -275,7 +275,7 @@ set_ALL_REAL_CORES_on() {
     
     for core in $cached_CORE_TOTAL_REAL_CORES_list
     do
-        if [ $core -ne 0 ]; then
+        if [ "$core" -ne 0 ]; then
             echo -n 1 > /sys/devices/system/cpu/cpu${core}/online
         fi
     done
@@ -332,7 +332,7 @@ set_GOVERNOR() {
     fi
 
 
-    if [ -z $GOVERNOR ]; then
+    if [ -z "$GOVERNOR" ]; then
 
         get_SCALING_DRIVER
 
@@ -364,7 +364,7 @@ set_GOVERNOR() {
 
 
 set_MIN_FREQ() {
-    if [ -z $MIN_FREQ ]; then
+    if [ -z "$MIN_FREQ" ]; then
         get_MIN_FREQ_AVAILABLE
         MIN_FREQ=$my_MIN_FREQ_AVAILABLE
     fi
@@ -453,7 +453,7 @@ set_TURBO_OFF() {
         #   - If not set by the user, set_MAX_FREQ will automatically
         #     choose a proper freq.
         # 
-        if [ ! -z $MAX_FREQ ]; then
+        if [ ! -z "$MAX_FREQ" ]; then
             MAX_FREQ=$(echo $MAX_FREQ | sed 's/010/000/')
         fi
         set_MAX_FREQ
@@ -523,7 +523,7 @@ set_LIMIT_REAL_CORE_count() {
         # round up so that we have an even number of active cores per socket.
         #
         desired_real_cores_per_socket_count=$(awk "BEGIN {print $LIMIT_REAL_CORES_TO_COUNT / $cached_SOCKETS_count}" | sed 's/\..*//')
-        if [ $desired_real_cores_per_socket_count -eq 0 ]; then
+        if [ "$desired_real_cores_per_socket_count" -eq 0 ]; then
             desired_real_cores_per_socket_count=1
         fi
         test ! -z $DEBUG && echo "desired_real_cores_per_socket_count: $desired_real_cores_per_socket_count"
@@ -538,11 +538,11 @@ set_LIMIT_REAL_CORE_count() {
             local count=0
             for core in $(seq 0 $cached_CORE_HIGHEST_CORE_NUMBER)
             do
-                if [ ${cached_SOCKET_BY_CORE[$core]} -eq $socket ]; then
+                if [ "${cached_SOCKET_BY_CORE[$core]}" -eq "$socket" ]; then
                     
                     if [ "${cached_CORETYPE_BY_CORE[$core]}" = "real" ]; then
 
-                        if [ $count -lt $desired_real_cores_per_socket_count ]; then
+                        if [ "$count" -lt "$desired_real_cores_per_socket_count" ]; then
                             core_destiny[$core]="on"
                             let count+=1
                             test ! -z $DEBUG && echo "Core $core is real, and makes for $count of $desired_real_cores_per_socket_count cores desired on socket $socket, so it will be turned on."
@@ -594,13 +594,13 @@ set_LIMIT_REAL_CORE_count() {
     do
         test ! -z $DEBUG && echo "Turning ${cached_CORETYPE_BY_CORE[$core]} core $core ${core_destiny[$core]}."
         core_file="/sys/devices/system/cpu/cpu${core}/online"
-        if [ -e $core_file -a "${core_destiny[$core]}" = "on" ]; then
+        if [ -e "$core_file" -a "${core_destiny[$core]}" = "on" ]; then
 
-            echo -n 1 > $core_file
+            echo -n 1 > "$core_file"
 
-        elif [ -e $core_file ]; then
+        elif [ -e "$core_file" ]; then
 
-            echo -n 0 > $core_file
+            echo -n 0 > "$core_file"
         fi
     done
 }
@@ -651,10 +651,10 @@ set_INITIALIZE_CPU_MAP_CACHE() {
         # cache coretype by core
         realcore=$(  cat /sys/devices/system/cpu/cpu${core}/topology/thread_siblings_list | sed -e 's/-.*//')
         hypercore=$( cat /sys/devices/system/cpu/cpu${core}/topology/thread_siblings_list | sed -e 's/.*-//')
-        if [ ! -z $hypercore -a $hypercore -eq $core ]; then
+        if [ ! -z "$hypercore" -a "$hypercore" -eq "$core" ]; then
             coretype="hyperthreading"
 
-        elif [ ! -z $realcore -a $realcore -eq $core ]; then
+        elif [ ! -z "$realcore" -a "$realcore" -eq "$core" ]; then
             coretype="real"
         fi
         echo "cached_CORETYPE_BY_CORE[${core}]=$coretype"                                                           >> $cpu_map_cache_FILE
@@ -684,7 +684,7 @@ read_CPU_MAP_CACHE() {
         DATE_OF_LAST_BOOT=$( date +%s --date="$(uptime -s)" )
         DATE_OF_CACHE_UPDATE=$( stat -L --format=%Y "$cpu_map_cache_FILE" )
 
-        if [ $DATE_OF_LAST_BOOT -gt $DATE_OF_CACHE_UPDATE ]; then
+        if [ "$DATE_OF_LAST_BOOT" -gt "$DATE_OF_CACHE_UPDATE" ]; then
             set_INITIALIZE_CPU_MAP_CACHE
         fi
     fi
