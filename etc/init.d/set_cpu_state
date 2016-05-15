@@ -219,6 +219,50 @@ create_default_config_file() {
 start() {
 
     read_config
+
+    get_SCALING_DRIVER
+    if [ $my_SCALING_DRIVER != 'acpi-cpufreq' ]; then
+        cat <<EOF
+
+WARNING: At this time use of acpi-cpufreq is required for _applying_
+settings with the 'start' option.
+
+To switch to the acpi-cpufreq driver, you'll need to add the following
+as a kernel append parameter in your boot loader configuration file.
+
+If you are on a modern distribution, this setting likely lives in the
+config file /etc/default/grub.  Find the entry for "GRUB_CMDLINE_LINUX"
+and add intel_pstate=disable to the end of the line.
+
+    For example, on stock Ubuntu 16.04, you would change this
+
+        GRUB_CMDLINE_LINUX="noprompt"
+
+    to this:
+
+        GRUB_CMDLINE_LINUX="noprompt intel_pstate=disable"
+                                    ^^^^^^^^^^^^^^^^^^^^^
+
+After editing, you'll need to run a command to update the actual boot
+time settings.  On recent Ubuntu releases, that command is 'update-grub'.  
+On recent releases of CentOS and friends, look for 'grub2-mkconfig'.
+
+Once you've found your command, just run it.  No options needed.  Ie.:
+
+    sudo update-grub
+
+After running this command, just reboot, and you should be good to go!
+
+NOTE:  Even without changing to the acpi-cpufreq scaling driver, you may
+still be able to use the 'status' option.
+
+EOF
+
+        exit 1
+
+    fi
+
+
     read_CPU_MAP_CACHE
 
     ######################################################################## 
