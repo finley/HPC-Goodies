@@ -320,7 +320,14 @@ status() {
     get_SCALING_DRIVER
     echo -n "Scaling Driver:        $my_SCALING_DRIVER"
     if [ $my_SCALING_DRIVER != 'acpi-cpufreq' ]; then
-        echo -n "  (NOTE: acpi-cpufreq is recommended for best control)"
+        echo
+        echo -n "                       INFO: acpi-cpufreq is the recommended scaling driver for best control."
+    fi
+    if [ $my_SCALING_DRIVER = 'intel_pstate' ]; then
+        echo
+        echo    "                       INFO: If you add 'intel_pstate=disable' as a kernel append parameter to"
+        echo    "                       INFO: your boot loader config, then this tool will auto-load acpi-cpufreq."
+
     fi
     echo
 
