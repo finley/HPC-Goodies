@@ -222,7 +222,7 @@ start() {
 
     get_SCALING_DRIVER
     if [ $my_SCALING_DRIVER != 'acpi-cpufreq' ]; then
-        cat <<EOF
+        cat <<'EOF'
 
 WARNING: At this time use of acpi-cpufreq is required for _applying_
 settings with the 'start' option.
@@ -247,9 +247,29 @@ After editing, you'll need to run a command to update the actual boot
 time settings.  On recent Ubuntu releases, that command is 'update-grub'.  
 On recent releases of CentOS and friends, look for 'grub2-mkconfig'.
 
-Once you've found your command, just run it.  No options needed.  Ie.:
+    For Ubuntu and friends, it's simple, and there are no options
+    needed:
+    
+        sudo update-grub
+    
 
-    sudo update-grub
+    For other distributions you man need to provide options.  CentOS and
+    friends requires that you specify the resulting output file, which
+    may be in different locations, depending on whether you're using EFI
+    or not.  To find yours in this case, do this:
+    
+        # Find it
+        GRUB_CFG=$(find /boot/ -name grub.cfg | head -n 1)
+    
+        # Look at it
+        echo $GRUB_CFG  
+    
+        # Update it
+        grub2-mkconfig -o $GRUB_CFG
+    
+        # Verify it
+        grep intel_pstate $GRUB_CFG
+
 
 After running this command, just reboot, and you should be good to go!
 
