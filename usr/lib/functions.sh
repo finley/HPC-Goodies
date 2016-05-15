@@ -316,7 +316,7 @@ get_C1E_STATE() {
         my_C1E_STATE=$($C1EUTIL | sed 's/^C1E //')
     fi
 
-    if [ -z $my_C1E_STATE ]; then
+    if [ -z "$my_C1E_STATE" ]; then
         my_C1E_STATE_SUMMARY="Unavailable"
     else
         my_C1E_STATE_SUMMARY=$( c1eutil | awk '{print "Cores " $2}' | sort | uniq -c | sed -r -e 's/^ +//')
