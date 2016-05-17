@@ -240,6 +240,8 @@ get_HYPERTHREADING_STATE() {
 
 set_HYPERTHREADING_ON() {
 
+    test ! -z $DEBUG && echo 'set_HYPERTHREADING_ON()'
+
     get_ACTIVE_REAL_CORES
 
     for core in $my_ACTIVE_REAL_CORES_list
@@ -287,6 +289,8 @@ set_ALL_REAL_CORES_on() {
 
 set_HYPERTHREADING_OFF() {
 
+    test ! -z $DEBUG && echo 'set_HYPERTHREADING_OFF()'
+
 	get_ACTIVE_HYPERTHREADING_CORES
 
     for core in $my_ACTIVE_HYPERTHREADING_CORES_list
@@ -298,6 +302,8 @@ set_HYPERTHREADING_OFF() {
 
 
 set_HYPERTHREADING_STATE() {
+
+    test ! -z $DEBUG && echo 'set_HYPERTHREADING_STATE()'
 
     if [ "$USE_HYPERTHREADING" = "yes" ]; then
         set_HYPERTHREADING_ON
@@ -328,6 +334,8 @@ get_C1E_STATE() {
 
 set_GOVERNOR() {
 
+    test ! -z $DEBUG && echo 'set_GOVERNOR()'
+
     if [ -z "$GOVERNOR" -a ! -z "$GOVERNER" ]; then
         GOVERNOR=$GOVERNER
             # backwards compatible with misspelling in config file
@@ -350,14 +358,30 @@ set_GOVERNOR() {
         
     fi
 
-    grep -qw $GOVERNOR /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors
+    SCALING_AVAILABLE_GOVERNORS_file=$(/bin/ls /sys/devices/system/cpu/cpu*/cpufreq/scaling_available_governors | head -n 1)
+    grep -qw $GOVERNOR $SCALING_AVAILABLE_GOVERNORS_file
     if [ $? -eq 0 ]; then
-        for core in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+
+        for cpu in $(/bin/ls /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | awk -F'/' '{print $6}')
         do 
-            echo -n $GOVERNOR > $core
+
+            ONLINE_file=/sys/devices/system/cpu/$cpu/online
+            SCALING_GOVERNOR_file=/sys/devices/system/cpu/$cpu/cpufreq/scaling_governor
+
+            if [ "$cpu" = "cpu0" ]; then
+
+                echo -n $GOVERNOR > $SCALING_GOVERNOR_file
+
+            elif [ -e $ONLINE_file ]; then
+
+                grep -qw 1 $ONLINE_file && echo -n $GOVERNOR > $SCALING_GOVERNOR_file
+
+            fi
         done 
+
     else
-        AVAILABLE_GOVERNORS=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors | sed -e "s/^/'/" -e "s/ /', '/g" -e "s/$/'/")
+
+        AVAILABLE_GOVERNORS=$(cat $SCALING_AVAILABLE_GOVERNORS_file | sed -e "s/^/'/" -e "s/ /', '/g" -e "s/$/'/")
         MSG="ERROR:  Governor '$GOVERNOR' is not supported on this system.  Try one of:  ${AVAILABLE_GOVERNORS}."
         echo $MSG
         test -x $LOGGER && echo $MSG | $LOGGER -t set_cpu_state
@@ -366,6 +390,7 @@ set_GOVERNOR() {
 
 
 set_MIN_FREQ() {
+
     if [ -z "$MIN_FREQ" ]; then
         get_MIN_FREQ_AVAILABLE
         MIN_FREQ=$my_MIN_FREQ_AVAILABLE
@@ -376,16 +401,32 @@ set_MIN_FREQ() {
     #
     #   http://askubuntu.com/a/303957/144800
     #
-    echo -n 1 > /sys/module/processor/parameters/ignore_ppc
+    IGNORE_PPC_file=/sys/module/processor/parameters/ignore_ppc
+    if [ -e $IGNORE_PPC_file ]; then
+        grep -qw 1 $IGNORE_PPC_file || echo -n 1 > $IGNORE_PPC_file
+    fi
 
-    for core in /sys/devices/system/cpu/cpu*/cpufreq/scaling_min_freq
+    for cpu in $(/bin/ls /sys/devices/system/cpu/cpu*/cpufreq/scaling_min_freq | awk -F'/' '{print $6}')
     do 
-        echo -n $MIN_FREQ > $core
+
+        ONLINE_file=/sys/devices/system/cpu/$cpu/online
+        SCALING_MIN_FREQ_file=/sys/devices/system/cpu/$cpu/cpufreq/scaling_min_freq
+
+        if [ "$cpu" = "cpu0" ]; then
+
+            echo -n $MIN_FREQ > $SCALING_MIN_FREQ_file
+
+        elif [ -e $ONLINE_file ]; then
+
+            grep -qw 1 $ONLINE_file && echo -n $MIN_FREQ > $SCALING_MIN_FREQ_file
+
+        fi
     done 
 }
 
 
 set_MAX_FREQ() {
+
     if [ -z "$MAX_FREQ" ]; then
         get_MAX_FREQ_AVAILABLE
         MAX_FREQ=$my_MAX_FREQ_AVAILABLE
@@ -396,11 +437,26 @@ set_MAX_FREQ() {
     #
     #   http://askubuntu.com/a/303957/144800
     #
-    echo -n 1 > /sys/module/processor/parameters/ignore_ppc
+    IGNORE_PPC_file=/sys/module/processor/parameters/ignore_ppc
+    if [ -e $IGNORE_PPC_file ]; then
+        grep -qw 1 $IGNORE_PPC_file || echo -n 1 > $IGNORE_PPC_file
+    fi
 
-    for core in $(/bin/ls /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq)
+    for cpu in $(/bin/ls /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq | awk -F'/' '{print $6}')
     do 
-        echo -n $MAX_FREQ > $core
+
+        ONLINE_file=/sys/devices/system/cpu/$cpu/online
+        SCALING_MAX_FREQ_file=/sys/devices/system/cpu/$cpu/cpufreq/scaling_max_freq
+
+        if [ "$cpu" = "cpu0" ]; then
+
+            echo -n $MAX_FREQ > $SCALING_MAX_FREQ_file
+
+        elif [ -e $ONLINE_file ]; then
+
+            grep -qw 1 $ONLINE_file && echo -n $MAX_FREQ > $SCALING_MAX_FREQ_file
+
+        fi
     done 
 }
 
@@ -435,6 +491,7 @@ set_TURBO_ON() {
 
 
 set_TURBO_OFF() {
+
     get_SCALING_DRIVER
 
     if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
@@ -449,17 +506,17 @@ set_TURBO_OFF() {
 
     elif [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
 
+        if [ -z "$MAX_FREQ" ]; then
+            get_MAX_FREQ_AVAILABLE
+            MAX_FREQ=$my_MAX_FREQ_AVAILABLE
+        fi
+
         #
         # Set max freq to the proper freq for non-turbo use.
         #
-        #   - If not set by the user, set_MAX_FREQ will automatically
-        #     choose a proper freq.
-        # 
-        if [ ! -z "$MAX_FREQ" ]; then
-            MAX_FREQ=$(echo $MAX_FREQ | sed 's/010/000/')
-        fi
+        MAX_FREQ=$(echo $MAX_FREQ | sed 's/010/000/')
+
         set_MAX_FREQ
-            # this _is_ how you turn turbo off with acpi-cpufreq
     fi
 }
 
@@ -499,6 +556,8 @@ set_C_STATE_LIMIT() {
 
 
 set_LIMIT_REAL_CORE_count() {
+
+    test ! -z $DEBUG && echo 'set_LIMIT_REAL_CORE_count()'
 
     local desired_real_cores_per_socket_count
 
@@ -609,6 +668,8 @@ set_LIMIT_REAL_CORE_count() {
 
 
 set_INITIALIZE_CPU_MAP_CACHE() {
+
+    test ! -z $DEBUG && echo 'set_INITIALIZE_CPU_MAP_CACHE()'
 
     local DIR=$(dirname $cpu_map_cache_FILE)
     mkdir -p $DIR

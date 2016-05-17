@@ -24,6 +24,9 @@
 #   - https://www.kernel.org/doc/Documentation/cpu-freq/index.txt
 #   - https://www.reddit.com/r/linux/comments/1hdogn/acpi_cpufreq_or_intel_pstates/
 #   - https://www.kernel.org/doc/Documentation/cpu-freq/intel-pstate.txt
+#   - http://www.phoronix.com/scan.php?page=article&item=intel_pstate_linux315&num=1
+#       (A multiple benchmark comparison of performance and power consumption
+#       between the intel_pstate and acpi-cpufreq scaling drivers.)
 #
 
 #
