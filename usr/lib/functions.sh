@@ -217,11 +217,21 @@ get_SOCKETS() {
 
 
 get_TOTAL_REAL_AND_HYPERTHREADING_CORES() {
-    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_count=$(( $(/bin/ls /sys/devices/system/cpu/cpu*/online | grep . | wc -l) + 1 ))
+    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_count=$(/bin/ls /sys/devices/system/cpu/cpu*/online | grep . | wc -l)
         # the 'grep .' bit eliminates blank lines, that would be counted by wc -l
+
+    #
+    # And apparently not all kernels present an 'online' file for cpu0.  For
+    # example, 3.10.x does, but 4.4.x does not. -BEF-
+    #
+    if [ ! -e /sys/devices/system/cpu/cpu0/online ]; then
+        let my_TOTAL_REAL_AND_HYPERTHREADING_CORES_count++
+    fi
     
-    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list=$(/bin/ls /sys/devices/system/cpu/cpu*/online | sed -e 's/.*cpu\/cpu//' -e 's/\/.*/ /' | sort -n | tr -d '\n')
-    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list=$(echo "0 $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list" | sed -r -e 's/^ +//' -e 's/ +$//')
+    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list=$(/bin/ls /sys/devices/system/cpu/cpu*/online | awk -F'/' '{print $6}' | sed -e 's/cpu//')
+    if [ ! -e /sys/devices/system/cpu/cpu0/online ]; then
+	    my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list="0 $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list"
+    fi
 }
 
 
@@ -255,7 +265,9 @@ get_CORE_ONLINE() {
 	my_CORE_ONLINE_list=$(grep -w 1 /sys/devices/system/cpu/cpu*/online)
 
 	my_CORE_ONLINE_CPU_NUMBERS_list=$(grep -w 1 /sys/devices/system/cpu/cpu*/online | awk -F'/' '{print $6}' | sed -e 's/cpu//')
-	my_CORE_ONLINE_CPU_NUMBERS_list="0 $my_CORE_ONLINE_CPU_NUMBERS_list"
+    if [ ! -e /sys/devices/system/cpu/cpu0/online ]; then
+	    my_CORE_ONLINE_CPU_NUMBERS_list="0 $my_CORE_ONLINE_CPU_NUMBERS_list"
+    fi
 }
 
 
@@ -710,6 +722,9 @@ set_INITIALIZE_CPU_MAP_CACHE() {
 
     test ! -z $DEBUG && echo 'set_INITIALIZE_CPU_MAP_CACHE()'
 
+    modprobe -r acpi_pad
+    modprobe acpi_cpufreq
+
     local DIR=$(dirname $cpu_map_cache_FILE)
     mkdir -p $DIR
 
@@ -750,9 +765,15 @@ set_INITIALIZE_CPU_MAP_CACHE() {
         socket=$(cat /sys/devices/system/cpu/cpu${core}/topology/physical_package_id)
         echo "cached_SOCKET_BY_CORE[${core}]=$socket"                                                               >> $cpu_map_cache_FILE
 
+        #
         # cache coretype by core
-        realcore=$(  cat /sys/devices/system/cpu/cpu${core}/topology/thread_siblings_list | sed -e 's/-.*//')
-        hypercore=$( cat /sys/devices/system/cpu/cpu${core}/topology/thread_siblings_list | sed -e 's/.*-//')
+        #
+        #   Apparently some kernels separate real cores from their siblings
+        #   with commas, and some with hyphens...  Hence the [-,] below. -BEF-
+        #
+        realcore=$(  cat /sys/devices/system/cpu/cpu${core}/topology/thread_siblings_list | sed -e 's/[-,].*//')
+        hypercore=$( cat /sys/devices/system/cpu/cpu${core}/topology/thread_siblings_list | sed -e 's/.*[-,]//')
+
         if [ ! -z "$hypercore" -a "$hypercore" -eq "$core" ]; then
             coretype="hyperthreading"
 
@@ -760,19 +781,20 @@ set_INITIALIZE_CPU_MAP_CACHE() {
             coretype="real"
         fi
         echo "cached_CORETYPE_BY_CORE[${core}]=$coretype"                                                           >> $cpu_map_cache_FILE
+
     done
 
     for cpu in $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list
     do
-        my_SIBLINGS=$(grep -w $cpu /sys/devices/system/cpu/cpu${cpu}/topology/thread_siblings_list | sed -e "s/${cpu}-//" -e "s/-${cpu}//" )
+        my_SIBLINGS=$(grep -w $cpu /sys/devices/system/cpu/cpu${cpu}/topology/thread_siblings_list | sed -e "s/${cpu}[-,]//" -e "s/[-,]${cpu}//" )
         echo "cached_THREAD_SIBLINGS_BY_CORE[$cpu]='$my_SIBLINGS'"                                                  >> $cpu_map_cache_FILE
     done
 
-    cached_CORE_TOTAL_REAL_CORES_list=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list | sort -u | sed -e 's/-.*/ /' | tr -d '\n')
+    cached_CORE_TOTAL_REAL_CORES_list=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list | sort -u | sed -e 's/[-,].*/ /' | tr -d '\n')
     cached_CORE_TOTAL_REAL_CORES_list=$(echo $cached_CORE_TOTAL_REAL_CORES_list | sed -r -e 's/^ +//' -e 's/ +$//')
     echo "cached_CORE_TOTAL_REAL_CORES_list='$cached_CORE_TOTAL_REAL_CORES_list'"                                   >> $cpu_map_cache_FILE
 
-    cached_CORE_TOTAL_HYPERTHREADING_CORES_list=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list | sort -u | sed -e 's/.*-/ /' | tr -d '\n')
+    cached_CORE_TOTAL_HYPERTHREADING_CORES_list=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list | sort -u | sed -e 's/.*[-,]/ /' | tr -d '\n')
     cached_CORE_TOTAL_HYPERTHREADING_CORES_list=$(echo $cached_CORE_TOTAL_HYPERTHREADING_CORES_list | sed -r -e 's/^ +//' -e 's/ +$//')
     echo "cached_CORE_TOTAL_HYPERTHREADING_CORES_list='$cached_CORE_TOTAL_HYPERTHREADING_CORES_list'"               >> $cpu_map_cache_FILE
 }
