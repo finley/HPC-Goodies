@@ -23,6 +23,7 @@ CPUINFO_MIN_FREQ_file="/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq"
 #   BEGIN functions
 #
 get_SCALING_DRIVER() {
+
     if [ ! -e "$SCALING_DRIVER_file" ]; then
         modprobe -r acpi_pad
         modprobe acpi_cpufreq
@@ -107,8 +108,17 @@ get_TURBO_OS_STATE() {
 
 
 get_SCALING_GOVERNOR() {
+
+    get_CORE_ONLINE
+
+    online_SCALING_GOVERNOR_files=""
+    for NUMBER in $my_CORE_ONLINE_CPU_NUMBERS_list
+    do
+	    online_SCALING_GOVERNOR_files="$online_SCALING_GOVERNOR_files /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_governor"
+    done
+
     my_SCALING_GOVERNOR=$(
-        cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor \
+        cat $online_SCALING_GOVERNOR_files \
         | sort | uniq -c \
         | sed -e 's/^ *//' -e 's/ / cores using /'
         )
@@ -116,16 +126,34 @@ get_SCALING_GOVERNOR() {
 
 
 get_SCALING_MAX_FREQ_state() {
+
+    get_CORE_ONLINE
+
+    online_SCALING_MAX_FREQ_files=""
+    for NUMBER in $my_CORE_ONLINE_CPU_NUMBERS_list
+    do
+	    online_SCALING_MAX_FREQ_files="$online_SCALING_MAX_FREQ_files /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_max_freq"
+    done
+
     my_SCALING_MAX_FREQ_state=$(
-        cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq \
+        cat $online_SCALING_MAX_FREQ_files \
         | sort | uniq -c \
         | sed -e 's/^ *//' -e 's/ / cores at /'
         )
 }
 
 get_SCALING_MIN_FREQ_state() {
+
+    get_CORE_ONLINE
+
+    online_SCALING_MIN_FREQ_state=""
+    for NUMBER in $my_CORE_ONLINE_CPU_NUMBERS_list
+    do
+	    online_SCALING_MIN_FREQ_state="$online_SCALING_MIN_FREQ_state /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_min_freq"
+    done
+
     my_SCALING_MIN_FREQ_state=$(
-        cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_min_freq \
+        cat $online_SCALING_MIN_FREQ_state \
         | sort | uniq -c \
         | sed -e 's/^ *//' -e 's/ / cores at /'
         )
@@ -217,6 +245,17 @@ get_CORE_OFFLINE() {
 	my_CORE_OFFLINE_count=$(grep -w 0 /sys/devices/system/cpu/cpu*/online | grep . | wc -l)
         # the 'grep .' bit eliminates blank lines, that would be counted by wc -l
 	my_CORE_OFFLINE_list=$(grep -w 0 /sys/devices/system/cpu/cpu*/online)
+}
+
+
+get_CORE_ONLINE() {
+	my_CORE_ONLINE_count=$(grep -w 1 /sys/devices/system/cpu/cpu*/online | grep . | wc -l)
+        # the 'grep .' bit eliminates blank lines, that would be counted by wc -l
+
+	my_CORE_ONLINE_list=$(grep -w 1 /sys/devices/system/cpu/cpu*/online)
+
+	my_CORE_ONLINE_CPU_NUMBERS_list=$(grep -w 1 /sys/devices/system/cpu/cpu*/online | awk -F'/' '{print $6}' | sed -e 's/cpu//')
+	my_CORE_ONLINE_CPU_NUMBERS_list="0 $my_CORE_ONLINE_CPU_NUMBERS_list"
 }
 
 
