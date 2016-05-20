@@ -92,7 +92,9 @@ get_TURBO_OS_STATE() {
         elif [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
 
             get_SCALING_MAX_FREQ_state
+
             my_TURBO_OS_STATE=$(echo "$my_SCALING_MAX_FREQ_state" | grep 010 | awk '{print $1 " cores engaged"}')
+
             if [ ! -z "$my_TURBO_OS_STATE" ]; then
                 my_TURBO_OS_STATE="On -- $my_TURBO_OS_STATE"
             else
@@ -134,6 +136,8 @@ get_SCALING_MAX_FREQ_state() {
     do
 	    online_SCALING_MAX_FREQ_files="$online_SCALING_MAX_FREQ_files /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_max_freq"
     done
+
+    #test ! -z "$DEBUG" && echo $online_SCALING_MAX_FREQ_files
 
     my_SCALING_MAX_FREQ_state=$(
         cat $online_SCALING_MAX_FREQ_files \
@@ -356,7 +360,7 @@ set_HYPERTHREADING_STATE() {
 
     test ! -z $DEBUG && echo 'set_HYPERTHREADING_STATE()'
 
-    if [ "$USE_HYPERTHREADING" = "yes" ]; then
+    if [ $USE_HYPERTHREADING -eq 1 ]; then
         set_HYPERTHREADING_ON
     else
         set_HYPERTHREADING_OFF
@@ -478,9 +482,13 @@ set_MIN_FREQ() {
 
 set_MAX_FREQ() {
 
-    if [ -z "$MAX_FREQ" ]; then
+    local my_FREQ
+
+    if [ ! -z $1 ]; then
+        my_FREQ=$1
+    elif [ -z "$MAX_FREQ" ]; then
         get_MAX_FREQ_AVAILABLE
-        MAX_FREQ=$my_MAX_FREQ_AVAILABLE
+        my_FREQ=$my_MAX_FREQ_AVAILABLE
     fi
 
     #
@@ -501,11 +509,11 @@ set_MAX_FREQ() {
 
         if [ "$cpu" = "cpu0" ]; then
 
-            echo -n $MAX_FREQ > $SCALING_MAX_FREQ_file
+            echo -n $my_FREQ > $SCALING_MAX_FREQ_file
 
         elif [ -e $ONLINE_file ]; then
 
-            grep -qw 1 $ONLINE_file && echo -n $MAX_FREQ > $SCALING_MAX_FREQ_file
+            grep -qw 1 $ONLINE_file && echo -n $my_FREQ > $SCALING_MAX_FREQ_file
 
         fi
     done 
@@ -514,28 +522,34 @@ set_MAX_FREQ() {
 
 set_TURBO_ON() {
 
-    get_TURBO_HW_STATE
+    if [ ! -z "$MAX_FREQ" ]; then
 
-    if [ "$my_TURBO_HW_STATE" = "On" ]; then
+        set_MAX_FREQ $MAX_FREQ
+            # Any MAX_FREQ setting overrides a USE_TURBO setting
 
-        if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
-            echo -n 0 > $INTEL_PSTATE_NO_TURBO_file
-        fi 
+    else
 
-        #
-        # Set max freq to the proper freq for turbo use.
-        # get_TURBO_HW_STATE will choose the proper freq and set it to
-        # $my_TURBO_FREQ.
-        #
-        #   - With acpi-cpufreq, that's a frequency with '010' in it,
-        #     such as 2601000, for example.
-        #
-        #   - With intel_pstate, it's simply the highest freq for the
-        #     proc, such as 2600000, for example.
-        # 
-        MAX_FREQ=$my_TURBO_FREQ
+        get_TURBO_HW_STATE
 
-        set_MAX_FREQ
+        if [ "$my_TURBO_HW_STATE" = "On" ]; then
+
+            if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
+                echo -n 0 > $INTEL_PSTATE_NO_TURBO_file
+            fi 
+
+            #
+            # Set max freq to the proper freq for turbo use.
+            # get_TURBO_HW_STATE will choose the proper freq and set it to
+            # $my_TURBO_FREQ.
+            #
+            #   - With acpi-cpufreq, that's a frequency with '010' in it,
+            #     such as 2601000, for example.
+            #
+            #   - With intel_pstate, it's simply the highest freq for the
+            #     proc, such as 2600000, for example.
+            # 
+            set_MAX_FREQ $my_TURBO_FREQ
+        fi
     fi
 
 }
@@ -543,31 +557,39 @@ set_TURBO_ON() {
 
 set_TURBO_OFF() {
 
-    get_SCALING_DRIVER
+    if [ ! -z "$MAX_FREQ" ]; then
 
-    if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
+        set_MAX_FREQ $MAX_FREQ
+            # Any MAX_FREQ setting overrides a USE_TURBO setting
 
-        set_MAX_FREQ
-            # must do this first, for intel_pstate
-        get_TURBO_HW_STATE
-        if [ "$my_TURBO_HW_STATE" = "On" ]; then
-            echo -n 1 > $INTEL_PSTATE_NO_TURBO_file
-                # make it go away!!!
+    else
+
+        get_SCALING_DRIVER
+
+        if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
+
+            set_MAX_FREQ
+                # must do this first, for intel_pstate
+            get_TURBO_HW_STATE
+            if [ "$my_TURBO_HW_STATE" = "On" ]; then
+                echo -n 1 > $INTEL_PSTATE_NO_TURBO_file
+                    # make it go away!!!
+            fi
+
+        elif [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
+
+            if [ -z "$MAX_FREQ" ]; then
+                get_MAX_FREQ_AVAILABLE
+                MAX_FREQ=$my_MAX_FREQ_AVAILABLE
+            fi
+
+            #
+            # Set max freq to the proper freq for non-turbo use.
+            #
+            MAX_FREQ=$(echo $MAX_FREQ | sed 's/010/000/')
+
+            set_MAX_FREQ
         fi
-
-    elif [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
-
-        if [ -z "$MAX_FREQ" ]; then
-            get_MAX_FREQ_AVAILABLE
-            MAX_FREQ=$my_MAX_FREQ_AVAILABLE
-        fi
-
-        #
-        # Set max freq to the proper freq for non-turbo use.
-        #
-        MAX_FREQ=$(echo $MAX_FREQ | sed 's/010/000/')
-
-        set_MAX_FREQ
     fi
 }
 
@@ -678,7 +700,7 @@ set_LIMIT_REAL_CORE_count() {
     do
         if [ "${cached_CORETYPE_BY_CORE[$core]}" = "hyperthreading" ]; then
 
-            if [ "$USE_HYPERTHREADING" = "yes" ]; then
+            if [ $USE_HYPERTHREADING -eq 1 ]; then
 
                 # is this core's thread sibling's destiny set to on?
                 this_hypercores_sibling=${cached_THREAD_SIBLINGS_BY_CORE[$core]}
@@ -692,7 +714,7 @@ set_LIMIT_REAL_CORE_count() {
             else
                 # HT is off altogether, just set destiny to off
                 core_destiny[$core]="off"
-                test ! -z $DEBUG && echo "Core $core is hyperthreaded and will be turned off. (USE_HYPERTHREADING is off)"
+                test ! -z $DEBUG && echo "Core $core is hyperthreaded and will be turned off. (USE_HYPERTHREADING=$USE_HYPERTHREADING_orig)"
             fi
         fi
     done
