@@ -778,7 +778,7 @@ set_INITIALIZE_CPU_MAP_CACHE() {
     echo "cached_CORE_TOTAL_REAL_AND_HYPERTHREADING_CORES_count=$my_TOTAL_REAL_AND_HYPERTHREADING_CORES_count"      >> $cpu_map_cache_FILE
     echo "cached_CORE_TOTAL_REAL_AND_HYPERTHREADING_CORES_list='$my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list'"      >> $cpu_map_cache_FILE
 
-    my_CORE_HIGHEST_CORE_NUMBER=$(echo $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list | wc -w)
+    my_CORE_HIGHEST_CORE_NUMBER=$(echo $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list | tr ' ' '\n' | sort -n | tail -1)
     echo "cached_CORE_HIGHEST_CORE_NUMBER=$my_CORE_HIGHEST_CORE_NUMBER"                                             >> $cpu_map_cache_FILE
 
     for core in $my_TOTAL_REAL_AND_HYPERTHREADING_CORES_list
