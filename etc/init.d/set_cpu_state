@@ -103,7 +103,11 @@ EXAMPLE_CONFIG="
 #       For example, if a machine is limited to 20 cores, across 2x 12
 #       core sockets (24 real cores), it will enable 10 real cores on
 #       each socket, and turn off the rest.  And if you specify 21
-#       cores, one socket will get 11, and the other 10.
+#       cores, it will enable 10 real cores per socket.  The formula
+#       looks like this:  
+#
+#           LIMIT_REAL_CORES_TO_COUNT / SOCKETS = CORES_PER_SOCKET
+#           (any remainder is discarded)
 #
 #       If USE_HYPERTHREADING is set to 'yes', then it will set each
 #       hyperthreaded core to match it's real core sibling's state
@@ -151,9 +155,6 @@ EXAMPLE_CONFIG="
 #       cores consume more than 100% of it's available power.  Now it
 #       all makes sense, right? ;-)
 #
-#C1E_STATE=(on|off)
-#     DEFAULT and HPC Best Practice: off
-#
 #C_STATE_LIMIT=(off|0|1|2|3|4|5)
 #     DEFAULT and HPC Best Practice: 2
 #
@@ -166,6 +167,9 @@ EXAMPLE_CONFIG="
 #     latency imposed by that level by level wake-up process can have a
 #     significant negative impact on the performance of certain codes
 #     and very notably low-latency network communication. 
+#
+#C1E_STATE=(on|off)
+#     DEFAULT and HPC Best Practice: off
 #
 "
 
@@ -199,24 +203,29 @@ read_config() {
     echo $USE_TURBO | egrep -qw -i "($ANTI_REGEX)"
     if [ $? -eq 0 ]; then
 
-        if [ ! -z "$MAX_FREQ" -a ! -z "$USE_TURBO" ]; then
-            echo "USE_TURBO and MAX_FREQ are both set.  MAX_FREQ=$MAX_FREQ will override USE_TURBO=$USE_TURBO_orig."
-                # If not clearly a no, or if not set, turn on
+        if [ ! -z "$DEBUG" ]; then
+            if [ ! -z "$MAX_FREQ" -a ! -z "$USE_TURBO" ]; then
+                echo "USE_TURBO and MAX_FREQ are both set.  MAX_FREQ=$MAX_FREQ will override USE_TURBO=$USE_TURBO_orig."
+                    # If not clearly a no, or if not set, turn on
+            fi
         fi
 
         USE_TURBO=0
 
     else
 
-        if [ ! -z "$MAX_FREQ"  -a  ! -z "$USE_TURBO" ]; then
+        if [ ! -z "$DEBUG" ]; then
 
-            echo "USE_TURBO and MAX_FREQ are both set.  MAX_FREQ=$MAX_FREQ will override USE_TURBO=$USE_TURBO_orig."
-                # If not clearly a no, or if not set, turn on
+            if [ ! -z "$MAX_FREQ"  -a  ! -z "$USE_TURBO" ]; then
 
-        elif [ -z "$MAX_FREQ" -a -z "$USE_TURBO" ]; then
+                echo "USE_TURBO and MAX_FREQ are both set.  MAX_FREQ=$MAX_FREQ will override USE_TURBO=$USE_TURBO_orig."
+                    # If not clearly a no, or if not set, turn on
 
-            echo "USE_TURBO not set.  Defaulting to 'Yes'"
-                # If not clearly a no, or if not set, turn on
+            elif [ -z "$MAX_FREQ" -a -z "$USE_TURBO" ]; then
+
+                echo "USE_TURBO not set.  Defaulting to 'Yes'"
+                    # If not clearly a no, or if not set, turn on
+            fi
         fi
 
         USE_TURBO=1
@@ -229,8 +238,11 @@ read_config() {
         USE_HYPERTHREADING=1
     else
         USE_HYPERTHREADING=0
-        echo "USE_HYPERTHREADING not set.  Defaulting to 'No'"
-            # if not clearly a yes or if not set, turn off
+
+        if [ ! -z "$DEBUG" ]; then
+            echo "USE_HYPERTHREADING not set.  Defaulting to 'No'"
+                # if not clearly a yes or if not set, turn off
+        fi
     fi
 
 
@@ -240,8 +252,10 @@ read_config() {
         C1E_STATE=1
     else
         C1E_STATE=0
-        #echo "C1E_STATE not set.  Defaulting to 'Disabled'"
-            # if not clearly a yes  or  if not set, turn off
+        if [ ! -z "$DEBUG" ]; then
+            echo "C1E_STATE not set.  Defaulting to 'Disabled'"
+                # if not clearly a yes  or  if not set, turn off
+        fi
     fi
 
 
@@ -250,18 +264,26 @@ read_config() {
     if [ $? -eq 0 ]; then
 
         C_STATE_LIMIT=2
-        echo "C_STATE_LIMIT=$C_STATE_LIMIT_orig.  Defaulting to '2'"
+
+        if [ ! -z "$DEBUG" ]; then
+            echo "C_STATE_LIMIT=$C_STATE_LIMIT_orig.  Defaulting to '2'"
+        fi
 
     elif [ -z "$C_STATE_LIMIT" ]; then
 
         C_STATE_LIMIT=2
-        echo "C_STATE_LIMIT not set.  Defaulting to '2'"
-            #
-            # If set to "Yes", etc., then default here to 2.  If set to either
-            # a number, or some form of "no", then the setting function will
-            # handle it.  If a number, it will be used explicitly.  If not a
-            # number (such as "no"), then it will not apply any setting. -BEF-
-            #
+
+        if [ ! -z "$DEBUG" ]; then
+            echo "C_STATE_LIMIT not set.  Defaulting to '2'"
+
+                #
+                # If set to "Yes", etc., then default here to 2.  If set
+                # to either a number, or some form of "no", then the
+                # setting function will handle it.  If a number, it will
+                # be used explicitly.  If not a number (such as "no"),
+                # then it will not apply any setting. -BEF-
+                #
+        fi
     fi
 
     #
