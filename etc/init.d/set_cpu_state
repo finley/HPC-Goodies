@@ -151,7 +151,7 @@ EXAMPLE_CONFIG="
 #       cores consume more than 100% of it's available power.  Now it
 #       all makes sense, right? ;-)
 #
-#C1E=(on|off)
+#C1E_STATE=(on|off)
 #     DEFAULT and HPC Best Practice: off
 #
 #C_STATE_LIMIT=(off|0|1|2|3|4|5)
