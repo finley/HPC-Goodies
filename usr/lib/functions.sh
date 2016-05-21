@@ -485,8 +485,11 @@ set_MAX_FREQ() {
     local my_FREQ
 
     if [ ! -z $1 ]; then
+
         my_FREQ=$1
+
     elif [ -z "$MAX_FREQ" ]; then
+
         get_MAX_FREQ_AVAILABLE
         my_FREQ=$my_MAX_FREQ_AVAILABLE
     fi
@@ -521,6 +524,8 @@ set_MAX_FREQ() {
 
 
 set_TURBO_ON() {
+
+    test ! -z "$DEBUG" && echo "set_TURBO_ON()"
 
     if [ ! -z "$MAX_FREQ" ]; then
 
@@ -557,6 +562,8 @@ set_TURBO_ON() {
 
 set_TURBO_OFF() {
 
+    test ! -z "$DEBUG" && echo "set_TURBO_OFF()"
+
     if [ ! -z "$MAX_FREQ" ]; then
 
         set_MAX_FREQ $MAX_FREQ
@@ -578,17 +585,14 @@ set_TURBO_OFF() {
 
         elif [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
 
-            if [ -z "$MAX_FREQ" ]; then
-                get_MAX_FREQ_AVAILABLE
-                MAX_FREQ=$my_MAX_FREQ_AVAILABLE
-            fi
+            get_MAX_FREQ_AVAILABLE
 
             #
             # Set max freq to the proper freq for non-turbo use.
             #
-            MAX_FREQ=$(echo $MAX_FREQ | sed 's/010/000/')
+            my_FREQ=$(echo $my_MAX_FREQ_AVAILABLE | sed -e 's/010/000/')
 
-            set_MAX_FREQ
+            set_MAX_FREQ $my_FREQ
         fi
     fi
 }
