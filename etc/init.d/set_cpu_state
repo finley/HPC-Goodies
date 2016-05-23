@@ -438,24 +438,30 @@ status() {
 
     read_CPU_MAP_CACHE
 
+    get_TURBO_OS_STATE
+    get_HYPERTHREADING_STATE
+    get_ACTIVE_REAL_CORES
+    get_SCALING_DRIVER
+    get_SCALING_GOVERNOR
+    get_SCALING_MAX_FREQ_state
+    get_SCALING_MIN_FREQ_state
+    get_C_STATE_LIMIT
+    get_C1E_STATE
+
+
     echo "Sockets:               $cached_SOCKETS_count"
     echo "Turbo Boost in HW:     $cached_TURBO_HW_STATE"
 
-    get_TURBO_OS_STATE
     echo "Turbo Boost in OS:     $my_TURBO_OS_STATE"
 
-    get_HYPERTHREADING_STATE
     echo "Hyper-Threading in HW: $cached_HYPERTHREADING_HW_STATE"
     echo "Hyper-Threading in OS: $my_HYPERTHREADING_OS_STATE" 
 
-    echo "Total Real Cores:      $cached_CORE_TOTAL_REAL_CORES_count"
-    echo "Total Hyper Cores:     $cached_CORE_TOTAL_HYPERTHREADING_CORES_count"
-
-    get_ACTIVE_REAL_CORES
+    echo "Total  Real Cores:     $cached_CORE_TOTAL_REAL_CORES_count"
     echo "Active Real Cores:     $my_ACTIVE_REAL_CORES_count"
+    echo "Total  Hyper Cores:    $cached_CORE_TOTAL_HYPERTHREADING_CORES_count"
     echo "Active Hyper Cores:    $my_ACTIVE_HYPERTHREADING_CORES_count"
 
-    get_SCALING_DRIVER
     echo -n "Scaling Driver:        $my_SCALING_DRIVER"
     if [ $my_SCALING_DRIVER != 'acpi-cpufreq' ]; then
         echo
@@ -469,28 +475,23 @@ status() {
     fi
     echo
 
-    get_SCALING_GOVERNOR
     echo "$my_SCALING_GOVERNOR" | while read line
     do
         echo "Scaling Governor:      $line"
     done
 
-    get_SCALING_MAX_FREQ_state
     echo "$my_SCALING_MAX_FREQ_state" | while read line
     do
         echo "MAX Freq Setting:      $line"
     done
 
-    get_SCALING_MIN_FREQ_state
     echo "$my_SCALING_MIN_FREQ_state" | while read line
     do
         echo "MIN Freq Setting:      $line"
     done
 
-    get_C_STATE_LIMIT
     echo "C State Limit:         $my_C_STATE_LIMIT"
 
-    get_C1E_STATE
     echo "$my_C1E_STATE_SUMMARY" | while read line
     do
         echo "C1E State:             $line"
