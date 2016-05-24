@@ -513,11 +513,15 @@ case "$1" in
         # node that does not yet have a config. -BEF-
         status
 	;;
-    defaults|create-config|create)
+    show-freqs)
+        get_SCALING_AVAILABLE_FREQUENCIES
+        echo $my_SCALING_AVAILABLE_FREQUENCIES
+	;;
+    defaults|set-defaults|create-config|create)
         create_default_config_file
 	;;
     *)
-	echo "Usage: $PROGNAME {start|stop|restart|status|create-config}"
+	echo "Usage: $PROGNAME {start|stop|restart|status|set-defaults|show-freqs}"
 	RETVAL=2
 	;;
 esac

@@ -47,6 +47,7 @@ get_SCALING_DRIVER() {
 get_TURBO_HW_STATE() {
 
     get_SCALING_DRIVER
+    get_SCALING_AVAILABLE_FREQUENCIES
 
     if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
 
@@ -62,10 +63,10 @@ get_TURBO_HW_STATE() {
 
     elif [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
 
-        grep -q 010 $acpi_cpufreq_SCALING_AVAILABLE_FREQUENCIES_file 
+        echo $my_SCALING_AVAILABLE_FREQUENCIES | grep -q 010
         if [ $? -eq 0 ]; then
             my_TURBO_HW_STATE=On 
-            my_TURBO_FREQ=$(cat $acpi_cpufreq_SCALING_AVAILABLE_FREQUENCIES_file | awk '{print $1}')
+            my_TURBO_FREQ=$(echo $my_SCALING_AVAILABLE_FREQUENCIES | awk '{print $1}')
         else
             my_TURBO_HW_STATE=Off
         fi
@@ -137,8 +138,6 @@ get_SCALING_MAX_FREQ_state() {
 	    online_SCALING_MAX_FREQ_files="$online_SCALING_MAX_FREQ_files /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_max_freq"
     done
 
-    #test ! -z "$DEBUG" && echo $online_SCALING_MAX_FREQ_files
-
     my_SCALING_MAX_FREQ_state=$(
         cat $online_SCALING_MAX_FREQ_files \
         | sort | uniq -c \
@@ -162,6 +161,13 @@ get_SCALING_MIN_FREQ_state() {
         | sed -e 's/^ *//' -e 's/ / cores at /'
         )
 }
+
+
+get_SCALING_AVAILABLE_FREQUENCIES() {
+
+    my_SCALING_AVAILABLE_FREQUENCIES=$(cat $acpi_cpufreq_SCALING_AVAILABLE_FREQUENCIES_file)
+}
+
 
 get_MAX_FREQ_AVAILABLE() {
     my_MAX_FREQ_AVAILABLE=$(cat $CPUINFO_MAX_FREQ_file)
@@ -264,7 +270,7 @@ get_CORE_OFFLINE() {
 
 get_CORE_ONLINE() {
 
-	my_CORE_ONLINE_list=$(grep -w 1 /sys/devices/system/cpu/cpu*/online)
+	my_CORE_ONLINE_list=$(grep -w 1 /sys/devices/system/cpu/cpu*/online | awk -F'/' '{print $6}' | sed -e 's/cpu//')
     echo $my_CORE_ONLINE_list | grep -qw 0 || my_CORE_ONLINE_list="0 $my_CORE_ONLINE_list"
 
 	my_CORE_ONLINE_count=$(echo $my_CORE_ONLINE_list | wc -w)
