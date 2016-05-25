@@ -444,7 +444,7 @@ set_GOVERNOR() {
         AVAILABLE_GOVERNORS=$(cat $SCALING_AVAILABLE_GOVERNORS_file | sed -e "s/^/'/" -e "s/ /', '/g" -e "s/$/'/")
         MSG="ERROR:  Governor '$GOVERNOR' is not supported on this system.  Try one of:  ${AVAILABLE_GOVERNORS}."
         echo $MSG
-        test -x $LOGGER && echo $MSG | $LOGGER -t set_cpu_state
+        test -x $LOGGER && echo $MSG | $LOGGER -t set-cpu-state
     fi
 }
 

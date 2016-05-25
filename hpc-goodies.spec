@@ -109,7 +109,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files cpu
 %defattr(-, root, root)
-%{_initrddir}/set_cpu_state
+%{_initrddir}/set-cpu-state
 %(grep -w ^cpu README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files gpfs

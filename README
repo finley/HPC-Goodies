@@ -1,1 +1,1 @@
-Try:  /etc/init.d/set_cpu_state status
+Try:  /etc/init.d/set-cpu-state status

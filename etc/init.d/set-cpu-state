@@ -1,18 +1,18 @@
 #!/bin/bash
 #
-# set_cpu_state
+# set-cpu-state
 #
 # chkconfig: 2345 01 99
 # description:	Set CPU Frequency, Turbo, Hyper-Threading, and other states
 #
 ### BEGIN INIT INFO
-# Provides: set_cpu_state
+# Provides: set-cpu-state
 # Required-Start: 
 # Required-Stop:
 # Default-Start:    2 3 4 5
 # Default-Stop:
-# Short-Description: start and stop set_cpu_state
-# Description:	set_cpu_state will set CPU Frequency, Turbo,
+# Short-Description: start and stop set-cpu-state
+# Description:	set-cpu-state will set CPU Frequency, Turbo,
 #               Hyper-Threading, and other states based on a 
 #               simple config file
 ### END INIT INFO
@@ -43,13 +43,26 @@ FUNCTIONS="/usr/lib/hpc-goodies/functions.sh"
 
 PROGNAME=$(basename $0)
 
-if [ -d /etc/sysconfig/ ]; then
-    CONFIG=/etc/sysconfig/set_cpu_state
-        # RedHat and friends...
-elif [ -d /etc/default/ ]; then
-    CONFIG=/etc/default/set_cpu_state
-        # Debian and friends...
+#
+# Choose the best config file
+#
+if [ -d /etc/default/ ]; then
+
+    if [ -e /etc/default/set_cpu_state ]; then
+        CONFIG=/etc/default/set_cpu_state
+    else
+        CONFIG=/etc/default/set-cpu-state
+    fi
+
+elif [ -d /etc/sysconfig/ ]; then
+
+    if [ -e /etc/sysconfig/set_cpu_state ]; then
+        CONFIG=/etc/sysconfig/set_cpu_state
+    else
+        CONFIG=/etc/sysconfig/set-cpu-state
+    fi
 fi
+
 
 EXAMPLE_CONFIG="
 #

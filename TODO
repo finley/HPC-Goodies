@@ -6,11 +6,11 @@
 
 
 
-- "consider adding a "triggers" capability to set_cpu_state, so that
+- "consider adding a "triggers" capability to set-cpu-state, so that
   after making changes, any "trigger scripts" get executed for
   post-processing.
 
-  In other words, you run set_cpu_state and it turns off hyperthreading,
+  In other words, you run set-cpu-state and it turns off hyperthreading,
   then, a torque trigger script restarts torque so that the MOM reports
   the right number of cores for scheduling.
 
@@ -40,7 +40,7 @@ flops-calculator
     - /etc/hpc-goodies/flops-calculator.conf.d/NVidia-k80.conf
 
 --
-/etc/rc.d/init.d/set_cpu_state
+/etc/rc.d/init.d/set-cpu-state
     set defaults to:
         GOVERNER=performance
         USE_TURBO=yes
@@ -79,10 +79,10 @@ so you are really saying a limit of c1 rather than c2 with that value
 
 --
 
-in set_cpu_state
+in set-cpu-state
     test for this case and handle gracefully:
 
-         RUNNING: chkconfig set_cpu_state --add ; chkconfig set_cpu_state on ; /etc/init.d/set_cpu_state start
+         RUNNING: chkconfig set-cpu-state --add ; chkconfig set-cpu-state on ; /etc/init.d/set-cpu-state start
 
          /etc/init.d/hpc_goodies.functions: line 200: /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor: No such file or directory
 
