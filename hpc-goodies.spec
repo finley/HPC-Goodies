@@ -119,7 +119,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files ib
 %defattr(-, root, root)
-%doc usr/share/doc/ib_arch_diags/*
+%doc usr/share/doc/ib_arch_diags/*.pdf
 %(grep -w ^ib README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files misc
