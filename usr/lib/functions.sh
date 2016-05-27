@@ -47,7 +47,6 @@ get_SCALING_DRIVER() {
 get_TURBO_HW_STATE() {
 
     get_SCALING_DRIVER
-    get_SCALING_AVAILABLE_FREQUENCIES
 
     if [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
 
@@ -62,6 +61,8 @@ get_TURBO_HW_STATE() {
 
 
     elif [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
+
+        get_SCALING_AVAILABLE_FREQUENCIES
 
         echo $my_SCALING_AVAILABLE_FREQUENCIES | grep -q 010
         if [ $? -eq 0 ]; then
