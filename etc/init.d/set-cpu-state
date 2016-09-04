@@ -17,17 +17,6 @@
 #               simple config file
 ### END INIT INFO
 
-#
-#   References:
-#   - https://software.intel.com/sites/default/files/comment/1716807/how-to-change-frequency-on-linux-pub.txt
-#   - https://wiki.archlinux.org/index.php/CPU_frequency_scaling
-#   - https://www.kernel.org/doc/Documentation/cpu-freq/index.txt
-#   - https://www.reddit.com/r/linux/comments/1hdogn/acpi_cpufreq_or_intel_pstates/
-#   - https://www.kernel.org/doc/Documentation/cpu-freq/intel-pstate.txt
-#   - http://www.phoronix.com/scan.php?page=article&item=intel_pstate_linux315&num=1
-#       (A multiple benchmark comparison of performance and power consumption
-#       between the intel_pstate and acpi-cpufreq scaling drivers.)
-#
 
 #
 # 2012.11.06 Brian Elliott Finley <bfinley@lenovo.com>
@@ -65,6 +54,9 @@ fi
 
 
 EXAMPLE_CONFIG="
+########################################################################
+#
+#   README
 #
 #   Please edit this $PROGNAME config file to set these variables
 #   according to your preferences.  
@@ -73,10 +65,13 @@ EXAMPLE_CONFIG="
 #   set.  The defaults values represent the recommended best practice
 #   settings for most High Performance Computing systems.
 #
+########################################################################
+
 
 #GOVERNOR=(conservative|ondemand|userspace|powersave|performance)
-#     DEFAULT: ondemand    (on systems using 'acpi_cpufreq')
+#     DEFAULT: performance (on systems using 'acpi_cpufreq')
 #     DEFAULT: performance (on systems using 'intel_pstate')
+#
 #
 #USE_TURBO=(yes|no)
 #     DEFAULT: yes
@@ -88,6 +83,7 @@ EXAMPLE_CONFIG="
 #     BEST PRACTICE recommendation under most circumstances for High
 #     Performance Computing is to take the default of 'USE_TURBO=yes'.
 #
+#
 #USE_HYPERTHREADING=(yes|no)
 #     DEFAULT: no
 #
@@ -98,6 +94,7 @@ EXAMPLE_CONFIG="
 #     BEST PRACTICE for HPC systems:  under most circumstances for High
 #     Performance Computing is to take the default of
 #     'USE_HYPERTHREADING=no'.
+#
 #
 #LIMIT_REAL_CORES_TO_COUNT=NN
 #     DEFAULT: no limit -- use all available real cores
@@ -145,6 +142,7 @@ EXAMPLE_CONFIG="
 #     WARNING: If MAX_FREQ and USE_TURBO is set to any value, the
 #     MAX_FREQ setting will override the USE_TURBO setting.
 #
+#
 #MIN_FREQ=1200000
 #     DEFAULT and best practice: Auto-select lowest possible frequency.
 #
@@ -168,6 +166,7 @@ EXAMPLE_CONFIG="
 #       cores consume more than 100% of it's available power.  Now it
 #       all makes sense, right? ;-)
 #
+#
 #C_STATE_LIMIT=(off|0|1|2|3|4|5)
 #     DEFAULT and HPC Best Practice: 2
 #
@@ -181,9 +180,25 @@ EXAMPLE_CONFIG="
 #     significant negative impact on the performance of certain codes
 #     and very notably low-latency network communication. 
 #
+#
 #C1E_STATE=(on|off)
 #     DEFAULT and HPC Best Practice: off
 #
+#
+########################################################################
+#
+#   REFERENCE MATERIALS:
+#
+#   - http://www.phoronix.com/scan.php?page=article&item=intel_pstate_linux315&num=1
+#       (A multiple benchmark comparison of performance and power consumption
+#       between the intel_pstate and acpi-cpufreq scaling drivers.)
+#   - https://software.intel.com/sites/default/files/comment/1716807/how-to-change-frequency-on-linux-pub.txt
+#   - https://www.kernel.org/doc/Documentation/cpu-freq/index.txt
+#   - https://www.reddit.com/r/linux/comments/1hdogn/acpi_cpufreq_or_intel_pstates/
+#   - https://www.kernel.org/doc/Documentation/cpu-freq/intel-pstate.txt
+#   - https://wiki.archlinux.org/index.php/CPU_frequency_scaling
+#
+########################################################################
 "
 
 read_config() {

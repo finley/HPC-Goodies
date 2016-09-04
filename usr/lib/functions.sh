@@ -408,7 +408,7 @@ set_GOVERNOR() {
         get_SCALING_DRIVER
 
         if [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
-            GOVERNOR="ondemand"
+            GOVERNOR="performance"
 
         elif [ "$my_SCALING_DRIVER" = "intel_pstate" ]; then
             GOVERNOR="performance"
@@ -626,7 +626,7 @@ set_C_STATE_LIMIT() {
 
     if [ ! -z "$SET_DMA_LATENCY" -a -x "$SET_DMA_LATENCY" ]; then
 
-        killall set_dma_latency >/dev/null 2>&1
+        kill $(pidof set_dma_latency) >/dev/null 2>&1
 
         echo "$C_STATE_LIMIT" | egrep -q '^[0-9]+$'
         if [ $? -eq 0 ]; then
