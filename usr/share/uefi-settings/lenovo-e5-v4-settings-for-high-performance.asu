@@ -1,0 +1,118 @@
+#
+#   This is a Lenovo UEFI settings file, tuned for use in High
+#   Performance Environments such as HPC and Big Data.
+#
+#   It is appropriate for use on Lenovo servers with Intel E5 v4
+#   processors (Broadwell).
+#   
+
+#
+#   2016.09.04 Brian Finley <bfinley@lenovo.com>
+#   - This file based on settings, testing, and experience provided by
+#     John Encizo.
+#   - Comments added and checked into the hpc-goodies repo
+#
+
+loaddefault BootOrder
+loaddefault uEFI
+
+#
+#   Boot via "PXE Network" first, then via "Hard Disk 0".
+#
+set BootOrder.BootOrder "PXE Network=Hard Disk 0"
+
+#
+#   Boot faster  :-)
+#
+set BootModes.OptimizedBoot Enable
+set BootModes.QuietBoot Enable
+
+#
+#   No comment
+#
+set DiskGPTRecovery.DiskGPTRecovery None
+
+#
+#   SOL bits for xCAT & Confluent
+#
+set DevicesandIOPorts.Com1FlowControl Hardware
+set DevicesandIOPorts.Com1TerminalEmulation VT100
+set DevicesandIOPorts.Com1ActiveAfterBoot Enable
+set DevicesandIOPorts.SerialPortSharing Enable
+set DevicesandIOPorts.SerialPortAccessMode Dedicated
+set DevicesandIOPorts.RemoteConsole Enable
+
+set IMM.ThermalModePolicy Performance
+
+set Processors.TurboMode Enable
+
+set Processors.EnergyEfficientTurbo Enable
+    # Takes memory utilization into consideration
+    # BEF: Test to see if we can still do SW enable/disable
+
+set OperatingModes.ChooseOperatingMode "Custom Mode"
+set Processors.ProcessorPerformanceStates Enable
+set Processors.PerCoreP-state Enable
+
+#
+#   We want to be able to manipulate this via the set-cpu-state tool,
+#   provided by the hpc-goodies-cpu package.
+#
+set Processors.C-States Enable
+
+#
+#   Remove ACPI C2 ACPI C state limit.  It doesn't do anything with
+#   Intel idler and the PM QoS interface is more flexible.  In any case,
+#   C1E can allow a clock frequency change that has significant negative
+#   if hyperthreading is on.  Therefore we must disable C1E at the uEFI
+#   level.
+#
+set Processors.C1EnhancedMode Disable
+
+#
+#   With Hyper-Threading enabled here (at the BIOS level), we can then
+#   enable or disable it on the fly via the set-cpu-state tool.
+#
+set Processors.Hyper-Threading Enable
+
+set Processors.ExecuteDisableBit Enable
+set Processors.HardwarePrefetcher Enable
+set Processors.AdjacentCachePrefetch Enable
+set Processors.DCUStreamerPrefetcher Enable
+set Processors.DCUIPPrefetcher Enable
+set Processors.DCA Enable
+set Processors.UncoreFrequencyScaling Enable
+set Processors.MWAITMMONITOR Disable
+set Processors.CODPreference Disable
+set Processors.EarlySnoopPreference Enable
+set Processors.TurboLimits "Full turbo uplift"
+set Processors.QPILinkFrequency "Max Performance"
+
+set Power.ActiveEnergyManager "Capping Disabled"
+set Power.PowerPerformanceBias "Platform Controlled"
+set Power.PlatformControlledType "Maximum Performance"
+set Power.WorkloadConfiguration "I/O Sensitive"
+set Power.LenovoEfficiencyMode Disable
+set Power.ZeroOutput Disable
+
+set Memory.MemoryMode Independent
+set Memory.Sparing Disable
+set Memory.MemorySpeed "Max Performance"
+set Memory.MemoryPowerManagement Disable
+set Memory.SocketInterleave NUMA
+
+#
+#   Recommended:    Disable
+#   Impact:         perf-up power-neutral
+#
+set Memory.PatrolScrub Disable
+
+#
+#   Recommended:    Enable
+#   Impact:         perf-up power-neutral
+#
+set Memory.MemoryDataScrambling Enable
+
+set Memory.PagePolicy Adaptive
+
+
