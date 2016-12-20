@@ -17,7 +17,6 @@ ib      set_hca_firmware_update
 ib      test_hca_state
 ib      test_infiniband_fabric_info
 ib      test_infiniband_route_info
-ib      test_uefi_settings
 
 cpu     c1eutil
 cpu     set_dma_latency
@@ -31,6 +30,7 @@ misc    mac_to_ipv6
 
 uefi    get_uefi_settings
 uefi    set_uefi_to_best_recipe
+uefi    test_uefi_settings
 
 xcat    backup_lenovo-ethernet-switch
 xcat    backup_xcatdb
