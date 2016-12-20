@@ -55,6 +55,7 @@ Requires: %{name}-libs = %{version}-%{release}
 
 %description misc
 Brian Finley's HPC Goodies (miscellaneous)
+- Includes the "half-baked" section.  Buyer beware...
 
 
 %package uefi
@@ -124,6 +125,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files misc
 %defattr(-, root, root)
+%doc half-baked
 %(grep -w ^misc README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files uefi
