@@ -1,3 +1,18 @@
+- set-cpu-state
+    
+    - different best performance settings based on detected CPU class?
+    - fall back to defaults otherwise?
+    - separate lookup table, or embed in library? -> library.  users can
+      edit conf file if prefer different settings
+
+- set-cpu-state
+
+    - show all default settings with show-defaults option
+
+        set-cpu-state {start|stop|...|show-defaults}
+                                      ^^^^^^^^^^^^^
+
+
 - Add /etc/hpc-goodies/settings.conf which can be sourced be each tool
   to get the following settings:
 
