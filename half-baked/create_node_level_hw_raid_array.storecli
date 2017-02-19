@@ -1,0 +1,202 @@
+wget http://docs.avagotech.com/docs-and-downloads/docs-and-downloads/raid-controllers/raid-controllers-common-files/1.19.04_StorCLI.zip
+wget http://docs.avagotech.com/docs/1.19.04_StorCLI.zip
+unzip *_StorCLI.zip
+rpm -Uvh storcli_all_os/Linux/storcli-1.19.04-1.noarch.rpm
+
+#
+# https://www.thomas-krenn.com/en/wiki/StorCLI
+#
+
+# Recommended procedure -- boot into an xCAT stateless image, then
+# perform these commands.
+
+# Take a look
+storcli64 show
+storcli64 /c0 show
+
+
+# RAID5
+#storcli64 /c0 set jbod=off
+#storcli64 /c0 add vd type=r5 drives=62:0-5
+
+# RAID10
+#storcli64 /c0 set jbod=off
+#storcli64 /c0 add vd type=r10 drives=62:0-5
+
+
+#
+# Example...
+# 
+# [root@box.domain]# storcli64 show
+# 	Status Code = 0
+# 	Status = Success
+# 	Description = None
+# 	
+# 	Number of Controllers = 1
+# 	Host Name = box.domain
+# 	Operating System  = Linux3.10.0-327.el7.x86_64
+# 	
+# 	System Overview :
+# 	===============
+# 	
+# 	---------------------------------------------------------------------------
+# 	Ctl Model          Ports PDs DGs DNOpt VDs VNOpt BBU  sPR DS EHS ASOs Hlth 
+# 	---------------------------------------------------------------------------
+# 	  0 ServeRAIDM5210     8  10   1     0   1     0 Msng On  -  Y      2 Opt  
+# 	---------------------------------------------------------------------------
+# 	
+# 	Ctl=Controller Index|DGs=Drive groups|VDs=Virtual drives|Fld=Failed
+# 	PDs=Physical drives|DNOpt=DG NotOptimal|VNOpt=VD NotOptimal|Opt=Optimal
+# 	Msng=Missing|Dgd=Degraded|NdAtn=Need Attention|Unkwn=Unknown
+# 	sPR=Scheduled Patrol Read|DS=DimmerSwitch|EHS=Emergency Hot Spare
+# 	Y=Yes|N=No|ASOs=Advanced Software Options|BBU=Battery backup unit
+# 	Hlth=Health|Safe=Safe-mode boot
+# 	
+# 
+# [root@box.domain]# storcli64 /c0 show
+# 	Generating detailed summary of the adapter, it may take a while to complete.
+# 	
+# 	Controller = 0
+# 	Status = Success
+# 	Description = None
+# 	
+# 	Product Name = ServeRAID M5210
+# 	Serial Number = SV61103184
+# 	SAS Address =  500605b00b9d5c40
+# 	PCI Address = 00:01:00:00
+# 	System Time = 08/20/2016 21:31:17
+# 	Mfg. Date = 03/08/16
+# 	Controller Time = 08/21/2016 01:31:17
+# 	FW Package Build = 24.9.0-0029
+# 	BIOS Version = 6.25.03.3_4.17.08.00_0x060E0301
+# 	FW Version = 4.290.00-4923
+# 	Driver Name = megaraid_sas
+# 	Driver Version = 06.807.10.00-rh1
+# 	Vendor Id = 0x1000
+# 	Device Id = 0x5D
+# 	SubVendor Id = 0x1014
+# 	SubDevice Id = 0x454
+# 	Host Interface = PCI-E
+# 	Device Interface = SAS-12G
+# 	Bus Number = 1
+# 	Device Number = 0
+# 	Function Number = 0
+# 	Drive Groups = 1
+# 	
+# 	TOPOLOGY :
+# 	========
+# 	
+# 	------------------------------------------------------------------------------
+# 	DG Arr Row EID:Slot DID Type   State BT       Size PDC  PI SED DS3  FSpace TR
+# 	------------------------------------------------------------------------------
+# 	 0 -   -   -        -   RAID10 Optl  N    1.359 TB dsbl N  N   none N      N
+# 	 0 0   -   -        -   RAID1  Optl  N  278.464 GB dsbl N  N   none N      N
+# 	 0 0   0   18:0     10  DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	 0 0   1   18:1     14  DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	 0 1   -   -        -   RAID1  Optl  N  278.464 GB dsbl N  N   none N      N
+# 	 0 1   0   18:2     12  DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	 0 1   1   18:3     8   DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	 0 2   -   -        -   RAID1  Optl  N  278.464 GB dsbl N  N   none N      N
+# 	 0 2   0   18:4     16  DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	 0 2   1   18:5     15  DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	 0 3   -   -        -   RAID1  Optl  N  278.464 GB dsbl N  N   none N      N
+# 	 0 3   0   18:6     11  DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	 0 3   1   18:7     17  DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	 0 4   -   -        -   RAID1  Optl  N  278.464 GB dsbl N  N   none N      N
+# 	 0 4   0   18:8     13  DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	 0 4   1   18:9     9   DRIVE  Onln  N  278.464 GB dsbl N  N   none -      N
+# 	------------------------------------------------------------------------------
+# 	
+# 	DG=Disk Group Index|Arr=Array Index|Row=Row Index|EID=Enclosure Device ID
+# 	DID=Device ID|Type=Drive Type|Onln=Online|Rbld=Rebuild|Dgrd=Degraded
+# 	Pdgd=Partially degraded|Offln=Offline|BT=Background Task Active
+# 	PDC=PD Cache|PI=Protection Info|SED=Self Encrypting Drive|Frgn=Foreign
+# 	DS3=Dimmer Switch 3|dflt=Default|Msng=Missing|FSpace=Free Space Present
+# 	TR=Transport Ready
+# 	
+# 	Virtual Drives = 1
+# 	
+# 	VD LIST :
+# 	=======
+# 	
+# 	--------------------------------------------------------------
+# 	DG/VD TYPE   State Access Consist Cache Cac sCC     Size Name
+# 	--------------------------------------------------------------
+# 	0/0   RAID10 Optl  RW     No      RWTD  -   ON  1.359 TB
+# 	--------------------------------------------------------------
+# 	
+# 	Cac=CacheCade|Rec=Recovery|OfLn=OffLine|Pdgd=Partially Degraded|dgrd=Degraded
+# 	Optl=Optimal|RO=Read Only|RW=Read Write|HD=Hidden|TRANS=TransportReady|B=Blocked|
+# 	Consist=ConsistentR=Read Ahead Always|NR=No Read Ahead|WB=WriteBack|
+# 	AWB=Always WriteBack|WT=WriteThrough|C=Cached IO|D=Direct IO|sCC=Scheduled
+# 	Check Consistency
+# 	
+# 	Physical Drives = 10
+# 	
+# 	PD LIST :
+# 	=======
+# 	
+# 	-------------------------------------------------------------------------
+# 	EID:Slt DID State DG       Size Intf Med SED PI SeSz Model            Sp
+# 	-------------------------------------------------------------------------
+# 	18:0     10 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	18:1     14 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	18:2     12 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	18:3      8 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	18:4     16 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	18:5     15 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	18:6     11 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	18:7     17 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	18:8     13 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	18:9      9 Onln   0 278.464 GB SAS  HDD N   N  512B AL14SEB030N      U
+# 	-------------------------------------------------------------------------
+# 	
+# 	EID-Enclosure Device ID|Slt-Slot No.|DID-Device ID|DG-DriveGroup
+# 	DHS-Dedicated Hot Spare|UGood-Unconfigured Good|GHS-Global Hotspare
+# 	UBad-Unconfigured Bad|Onln-Online|Offln-Offline|Intf-Interface
+# 	Med-Media Type|SED-Self Encryptive Drive|PI-Protection Info
+# 	SeSz-Sector Size|Sp-Spun|U-Up|D-Down|T-Transition|F-Foreign
+# 	UGUnsp-Unsupported|UGShld-UnConfigured shielded|HSPShld-Hotspare shielded
+# 	CFShld-Configured shielded|Cpybck-CopyBack|CBShld-Copyback Shielded
+# 	
+# 	
+# [root@box.domain]# storcli64 /c0/v0 del
+# 	Controller = 0
+# 	Status = Failure
+# 	Description = Delete VD failed
+# 	
+# 	Detailed Status :
+# 	===============
+# 	
+# 	---------------------------------
+# 	VD ErrCd Status                  
+# 	---------------------------------
+# 	 0   255 VD has OS/FS, use force 
+# 	---------------------------------
+# 	
+# 	
+# [root@box.domain]# storcli64 /c0/v0 del force
+# 	Controller = 0
+# 	Status = Success
+# 	Description = Delete VD succeeded
+# 	
+# 	
+# 	
+# 	
+# [root@box.domain]# storcli64 /c0 add vd r10 drives=18:0-7 pdperarray=2
+# 	Controller = 0
+# 	Status = Success
+# 	Description = Add VD Succeeded
+# 	
+# [root@box.domain]# storcli64 /c0/e18/s8 add hotsparedrive
+# 	Controller = 0
+# 	Status = Success
+# 	Description = Add Hot Spare Succeeded.
+# 	
+# [root@box.domain]# storcli64 /c0/e18/s9 add hotsparedrive
+# 	Controller = 0
+# 	Status = Success
+# 	Description = Add Hot Spare Succeeded.
+# 	
+# 
+# 
