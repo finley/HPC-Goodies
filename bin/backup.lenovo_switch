@@ -1,0 +1,27 @@
+#! /bin/bash         
+#
+#   Backup a Lenovo switch
+#
+
+switch=$1
+
+if [ -z $switch ]; then
+    echo Usage:
+    echo
+    progname=$(basename $0)
+    echo "  $progname LENOVO_SWITCH_HOSTNAME"
+    echo
+    exit 1
+fi
+
+echo Backing up switch: $switch         
+scp admin@${switch}:getcfg $switch.cfg.$(date +%Y-%m-%d,%Hh%Mm%Ss)
+
+# Hint:
+#   To restore a config, you can use one of the following, depending on
+#   the level of restore/upload you require.
+#  
+#       scp $config_file.cfg $switch_name:putcfg
+#       scp $config_file.cfg $switch_name:putcfg_apply
+#       scp $config_file.cfg $switch_name:putcfg_apply_save
+#
