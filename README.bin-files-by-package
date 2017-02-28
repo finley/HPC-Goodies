@@ -27,11 +27,11 @@ misc    p2p_label_maker_input_maker
 misc    vnc.setup_ssh_tunnel
 misc    hpc_system_size_calculator
 misc    mac_to_ipv6
+misc    backup.lenovo_switch
 
 uefi    get_uefi_settings
 uefi    set_uefi_to_best_recipe
 uefi    test_uefi_settings
 
-xcat    backup_lenovo-ethernet-switch
 xcat    backup_xcatdb
 
