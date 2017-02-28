@@ -854,7 +854,7 @@ read_CPU_MAP_CACHE() {
     if [ ! -e "$cpu_map_cache_FILE" ]; then
         set_INITIALIZE_CPU_MAP_CACHE
     else
-        DATE_OF_LAST_BOOT=$( date +%s --date="$(uptime -s)" )
+        DATE_OF_LAST_BOOT=$( awk -F. '{print $1}' /proc/uptime )
         DATE_OF_CACHE_UPDATE=$( stat -L --format=%Y "$cpu_map_cache_FILE" )
 
         if [ "$DATE_OF_LAST_BOOT" -gt "$DATE_OF_CACHE_UPDATE" ]; then
