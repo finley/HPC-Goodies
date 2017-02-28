@@ -1,7 +1,12 @@
-wget http://docs.avagotech.com/docs-and-downloads/docs-and-downloads/raid-controllers/raid-controllers-common-files/1.19.04_StorCLI.zip
-wget http://docs.avagotech.com/docs/1.19.04_StorCLI.zip
-unzip *_StorCLI.zip
-rpm -Uvh storcli_all_os/Linux/storcli-1.19.04-1.noarch.rpm
+#
+#   Storcli Docs, downloads, etc.
+#
+https://www.broadcom.com/site-search?q=storcli
+
+1) Download the latest of the StorCLI.zip file
+2) unzip *_StorCLI.zip
+3) rpm -Uvh storcli_all_os/Linux/storcli-1.19.04-1.noarch.rpm
+
 
 #
 # https://www.thomas-krenn.com/en/wiki/StorCLI
@@ -10,18 +15,37 @@ rpm -Uvh storcli_all_os/Linux/storcli-1.19.04-1.noarch.rpm
 # Recommended procedure -- boot into an xCAT stateless image, then
 # perform these commands.
 
+# Add to path for this session
+PATH=/opt/MegaRAID/storcli:$PATH
+
 # Take a look
 storcli64 show
 storcli64 /c0 show
 
 
-# RAID5
-#storcli64 /c0 set jbod=off
-#storcli64 /c0 add vd type=r5 drives=62:0-5
+#
+#   RAID1 Example
+#
+# If necessary, delete existing volume 0
+#  storcli64 /c0/v0 del
+#
+# Turn off jbod mode to prepare for creating an array
+#  storcli64 /c0 set jbod=off
+#
+# Create a new virtual disk (vd), with RAID1 (r1), with disks in positions 62:24 and 62:25
+#  storcli64 /c0 add vd type=r1 drives=62:24-25
 
-# RAID10
-#storcli64 /c0 set jbod=off
-#storcli64 /c0 add vd type=r10 drives=62:0-5
+#
+#   RAID5 Example
+#
+# storcli64 /c0 set jbod=off
+# storcli64 /c0 add vd type=r5 drives=62:0-5
+
+#
+#   RAID10 Example
+#
+# storcli64 /c0 set jbod=off
+# storcli64 /c0 add vd type=r10 drives=62:0-5
 
 
 #
