@@ -257,7 +257,7 @@ get_TOTAL_HYPERTHREADING_CORES() {
 
 get_TOTAL_REAL_CORES() {
     get_SOCKETS
-    my_CORES_PER_SOCKET=$(grep 'cpu cores' /proc/cpuinfo | sort -u | awk '{print $NF}')
+    my_CORES_PER_SOCKET=$(grep 'cpu cores' /proc/cpuinfo | head -n 1 | awk '{print $NF}')
     my_TOTAL_REAL_CORES_count=$(( $my_SOCKETS_count * $my_CORES_PER_SOCKET ))
 }
 
