@@ -1,0 +1,64 @@
+#
+#   HOWTO Enable Masquerading for your Cluster with firewalld
+#
+
+#
+#   To enable masquerading, identify your externally facing interface(s) (that
+#   is the interface(s) that send packets to your default gateway).  Here's a
+#   command that should give you a list of those interfaces:
+
+ip route | grep default | sed -e 's/.* dev //' -e 's/ .*//'
+
+#   Example:
+#
+#     ┌─[bfinley@xbob4] ~/src/hpc-goodies/
+#     └─[$] ip route | grep default | sed -e 's/.* dev //' -e 's/ .*//'
+#     wlan0
+
+
+#
+#   Each of your interfaces should already be in a zone.  To get a list of your
+#   active zones and the interfaces assigned to each zone, do this:
+
+firewall-cmd --get-active-zones           
+
+#   Example:
+#
+#     ┌─[bfinley@xbob4] ~/src/hpc-goodies/
+#     └─[$] sudo firewall-cmd --get-active-zones           
+#     public
+#       interfaces: enu0 enp0 vmnet8 vmnet1 enusb0 wwp0s20f0u2i12 wlan0
+
+
+#
+# 	Now that we know the externally facing interface (wlan0) and which zone
+# 	it's assigned to (public), we can add a masquerading rule to the public
+# 	zone.  By adding a masquerading rule to the public zone, we're telling the
+# 	firewall to masquerade all traffic that is headed out of the public zone.
+# 	It's not necessary to add any other masquerade related configuration
+# 	settings to any other zone.
+#   
+#   Here's the command:
+
+firewall-cmd --permanent --zone=public --add-masquerade
+firewall-cmd --reload
+
+#
+#   That's it!
+#
+
+--
+
+#
+#   References:
+#
+#   - https://www.lisenet.com/2016/firewalld-rich-and-direct-rules-setup-rhel-7-server-as-a-router/
+#
+
+#
+#   CHANGELOG
+#
+#   2018.09.11 Brian Finley <bfinley@lenovo.com>
+#   - genesis
+#
+
