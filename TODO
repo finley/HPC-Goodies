@@ -1,4 +1,13 @@
 - set-cpu-state
+
+    - deprecate "show-freqs" option in favor of "show-available-freqs"
+    - add "show-current-freqs"
+
+        - shows a summary of frequencies.  Equivalent of 
+        
+            "cat /sys/**/cpu*/**/$current_freq | sort | uniq -c"
+
+- set-cpu-state
     
     - different best performance settings based on detected CPU class?
     - fall back to defaults otherwise?
