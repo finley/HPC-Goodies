@@ -111,6 +111,8 @@ rm -rf $RPM_BUILD_ROOT
 %files cpu
 %defattr(-, root, root)
 %{_initrddir}/set-cpu-state
+# Find variable to use for 
+#/lib/systemd/system/set-cpu-state.service
 %(grep -w ^cpu README.bin-files-by-package | perl -pe 's|^\S+\s+|%{_sbindir}/|')
 
 %files gpfs
