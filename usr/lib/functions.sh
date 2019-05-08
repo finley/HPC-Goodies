@@ -25,9 +25,9 @@ CPUINFO_MIN_FREQ_file="/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq"
 get_SCALING_DRIVER() {
 
     if [ ! -e "$SCALING_DRIVER_file" ]; then
+        # No scaling driver loaded yet, so let's load our preferred driver -BEF-
         modprobe -r acpi_pad
-        modprobe acpi_cpufreq
-            # if none loaded yet, let's load our preferred driver
+        modprobe acpi_cpufreq 2>/dev/null
     fi
 
     if [ -e "$SCALING_DRIVER_file" ]; then
@@ -113,54 +113,75 @@ get_TURBO_OS_STATE() {
 
 get_SCALING_GOVERNOR() {
 
-    get_CORE_ONLINE
+    get_SCALING_DRIVER
 
-    online_SCALING_GOVERNOR_files=""
-    for NUMBER in $my_CORE_ONLINE_list
-    do
-	    online_SCALING_GOVERNOR_files="$online_SCALING_GOVERNOR_files /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_governor"
-    done
+    if [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
 
-    my_SCALING_GOVERNOR=$(
-        cat $online_SCALING_GOVERNOR_files \
-        | sort | uniq -c \
-        | sed -e 's/^ *//' -e 's/ / cores using /'
-        )
+        get_CORE_ONLINE
+
+        online_SCALING_GOVERNOR_files=""
+        for NUMBER in $my_CORE_ONLINE_list
+        do
+	        online_SCALING_GOVERNOR_files="$online_SCALING_GOVERNOR_files /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_governor"
+        done
+
+        my_SCALING_GOVERNOR=$(
+            cat $online_SCALING_GOVERNOR_files \
+            | sort | uniq -c \
+            | sed -e 's/^ *//' -e 's/ / cores using /'
+            )
+    else
+        my_SCALING_GOVERNOR="UNKNOWN"
+    fi
 }
 
 
 get_SCALING_MAX_FREQ_state() {
 
-    get_CORE_ONLINE
+    get_SCALING_DRIVER
 
-    online_SCALING_MAX_FREQ_files=""
-    for NUMBER in $my_CORE_ONLINE_list
-    do
-	    online_SCALING_MAX_FREQ_files="$online_SCALING_MAX_FREQ_files /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_max_freq"
-    done
+    if [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
 
-    my_SCALING_MAX_FREQ_state=$(
-        cat $online_SCALING_MAX_FREQ_files \
-        | sort | uniq -c \
-        | sed -e 's/^ *//' -e 's/ / cores at /'
-        )
+        get_CORE_ONLINE
+
+        online_SCALING_MAX_FREQ_files=""
+        for NUMBER in $my_CORE_ONLINE_list
+        do
+	        online_SCALING_MAX_FREQ_files="$online_SCALING_MAX_FREQ_files /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_max_freq"
+        done
+
+        my_SCALING_MAX_FREQ_state=$(
+            cat $online_SCALING_MAX_FREQ_files \
+            | sort | uniq -c \
+            | sed -e 's/^ *//' -e 's/ / cores at /'
+            )
+    else
+        my_SCALING_MAX_FREQ_state="UNKNOWN"
+    fi
 }
 
 get_SCALING_MIN_FREQ_state() {
 
-    get_CORE_ONLINE
+    get_SCALING_DRIVER
 
-    online_SCALING_MIN_FREQ_state=""
-    for NUMBER in $my_CORE_ONLINE_list
-    do
-	    online_SCALING_MIN_FREQ_state="$online_SCALING_MIN_FREQ_state /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_min_freq"
-    done
+    if [ "$my_SCALING_DRIVER" = "acpi-cpufreq" ]; then
 
-    my_SCALING_MIN_FREQ_state=$(
-        cat $online_SCALING_MIN_FREQ_state \
-        | sort | uniq -c \
-        | sed -e 's/^ *//' -e 's/ / cores at /'
-        )
+        get_CORE_ONLINE
+
+        online_SCALING_MIN_FREQ_state=""
+        for NUMBER in $my_CORE_ONLINE_list
+        do
+	        online_SCALING_MIN_FREQ_state="$online_SCALING_MIN_FREQ_state /sys/devices/system/cpu/cpu$NUMBER/cpufreq/scaling_min_freq"
+        done
+
+        my_SCALING_MIN_FREQ_state=$(
+            cat $online_SCALING_MIN_FREQ_state \
+            | sort | uniq -c \
+            | sed -e 's/^ *//' -e 's/ / cores at /'
+            )
+    else
+        my_SCALING_MIN_FREQ_state="UNKNOWN"
+    fi
 }
 
 
@@ -754,8 +775,7 @@ set_INITIALIZE_CPU_MAP_CACHE() {
 
     test ! -z $DEBUG && echo 'set_INITIALIZE_CPU_MAP_CACHE()'
 
-    modprobe -r acpi_pad
-    modprobe acpi_cpufreq
+    get_SCALING_DRIVER
 
     local DIR=$(dirname $cpu_map_cache_FILE)
     mkdir -p $DIR
