@@ -12,8 +12,8 @@ SET_DMA_LATENCY=$(which set_dma_latency)
 cpu_map_cache_FILE="/var/cache/hpc-goodies/cpu_map_cache.db"
 
 acpi_cpufreq_SCALING_AVAILABLE_FREQUENCIES_file="/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies"
-#SCALING_DRIVER_file="/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver"
-SCALING_DRIVER_file=$(/bin/ls /sys/devices/system/cpu/cpu*/cpufreq/scaling_driver | head -n 1)
+SCALING_DRIVER_file="/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver"
+#SCALING_DRIVER_file=$(/bin/ls /sys/devices/system/cpu/cpu*/cpufreq/scaling_driver | head -n 1)
 INTEL_PSTATE_NO_TURBO_file="/sys/devices/system/cpu/intel_pstate/no_turbo"
 CPUINFO_MAX_FREQ_file="/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
 CPUINFO_MIN_FREQ_file="/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq"
