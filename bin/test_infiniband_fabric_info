@@ -52,7 +52,7 @@ if ( defined $help ) {
 
 unless( $p2p or $p2p_errors or $uplink_summary or $uplink_details ) {
     usage();
-    print qq(\nPlease try one of "--p2p" or "--p2p-errors" or "--uplink_summary" or "--uplink_details"\n\n);
+    print qq(\nPlease try one of "--p2p" or "--p2p-errors" or "--uplink-summary" or "--uplink-details"\n\n);
     exit 1;
 }
 
