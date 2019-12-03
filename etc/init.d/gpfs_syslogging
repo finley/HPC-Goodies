@@ -3,7 +3,7 @@
 # gpfs_syslogging
 #
 # chkconfig: 3 59 23
-# description:	Starts and stops gpfs syslogging
+# description:  Starts and stops gpfs syslogging
 #
 ### BEGIN INIT INFO
 # Provides: gpfs_syslogging
@@ -25,15 +25,17 @@
 #  connection with batch mode on.
 #
 
-PATH=/usr/bin:/bin
+PATH=/usr/sbin:/sbin:/usr/bin:/bin
 PID_FILE=/var/run/gpfs_syslogging.pid
+
+bin=${0##*/}
 
 # Exit silently if GPFS isn't installed
 test -e /var/adm/ras/ || exit 0
 
 start() {
     /usr/bin/tail -n 100 -F /var/adm/ras/mmfs.log.latest 2>/dev/null | /usr/bin/logger -t GPFS &
-	RETVAL=$?
+        RETVAL=$?
     PID=$$
 
     #
@@ -41,32 +43,57 @@ start() {
     # logger), but omit the child processes of the tools we use to get the PIDs
     # of the other child processes.  If there's a better way to do this, please
     # tell me. -BEF-
-    #
-	ps --ppid $PID -o pid=,comm= | egrep -vw '(ps|egrep|awk)' | awk '{print $1}' > $PID_FILE
+    #   
+        ps --ppid $PID -o pid=,comm= | egrep -vw '(ps|egrep|awk)' | awk '{print $1}' > $PID_FILE
 }
 
 stop() {
-	test -e $PID_FILE && kill `cat $PID_FILE` || /bin/false
-	RETVAL=$?
-	rm -f $PID_FILE
+        test -e $PID_FILE && kill `cat $PID_FILE` || /bin/false
+        RETVAL=$?
+        rm -f $PID_FILE
 }
+
+
+status()
+{
+
+        test -e $PID_FILE && ps -q `cat $PID_FILE | tr '\n' ',' | sed 's/,$//'` >/dev/null 2>&1 && rc=0 || rc=1
+
+    if [ "$rc" = "0" ]; then
+        echo $"${bin} is running..."
+        return 0
+    else
+        echo $"${bin} is not running..."
+        return 1
+    fi
+}
+
 
 case "$1" in
     start)
-	start
-	;;
+        stop
+        start
+        ;;
+
     stop)
-	stop
-	;;
+        stop
+        ;;
+
+    status)
+        status
+        ;;
+
     restart)
-	stop
-	start
-	;;
+        stop
+        start
+        ;;
+
     *)
-	echo $"Usage: $0 {start|stop|restart}"
-	RETVAL=2
-	;;
+        echo $"Usage: $0 {start|stop|status|restart}"
+        RETVAL=2
+        ;;
 esac
 
 exit $RETVAL
+
 
