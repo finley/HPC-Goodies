@@ -142,6 +142,10 @@ EXAMPLE_CONFIG="
 #     WARNING: If MAX_FREQ and USE_TURBO is set to any value, the
 #     MAX_FREQ setting will override the USE_TURBO setting.
 #
+#     HINT: Try this to see a list of valid frequencies for this system:
+#
+#       $0 show-freqs
+#
 #
 #MIN_FREQ=1200000
 #     DEFAULT and best practice: Auto-select lowest possible frequency.
@@ -165,6 +169,10 @@ EXAMPLE_CONFIG="
 #       At no time can the total power consumed by a processor package's
 #       cores consume more than 100% of it's available power.  Now it
 #       all makes sense, right? ;-)
+#
+#     HINT: Try this to see a list of valid frequencies for this system:
+#
+#       $0 show-freqs
 #
 #
 #C_STATE_LIMIT=(off|0|1|2|3|4|5)
