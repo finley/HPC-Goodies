@@ -1,25 +1,9 @@
 - set-cpu-state
-
-    - deprecate "show-freqs" option in favor of "show-available-freqs"
-    - add "show-current-freqs"
-
-        - shows a summary of frequencies.  Equivalent of 
-        
-            "cat /sys/**/cpu*/**/$current_freq | sort | uniq -c"
-
-- set-cpu-state
     
     - different best performance settings based on detected CPU class?
     - fall back to defaults otherwise?
     - separate lookup table, or embed in library? -> library.  users can
       edit conf file if prefer different settings
-
-- set-cpu-state
-
-    - show all default settings with show-defaults option
-
-        set-cpu-state {start|stop|...|show-defaults}
-                                      ^^^^^^^^^^^^^
 
 
 - Add /etc/hpc-goodies/settings.conf which can be sourced be each tool
@@ -27,7 +11,6 @@
 
     PARALLEL_SHELL_SYSTEM=(xcat|pdsh)
         # add others as appropriate
-
 
 
 - "consider adding a "triggers" capability to set-cpu-state, so that
@@ -44,7 +27,6 @@
         - https://goo.gl/Kd1hB5
         - https://goo.gl/y7qwIp
 
-
 - 
     New tool, proposed by Mark at TAMU:
     - ethernet.label_switch_ports
@@ -54,7 +36,6 @@
 
         - Helps in tracking down issues when monitoring for problems in
           switch fabric.
-
 
 --
 flops-calculator
