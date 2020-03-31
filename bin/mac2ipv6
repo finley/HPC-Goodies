@@ -6,6 +6,8 @@
 #
 # 2015.08.01 Brian Elliott Finley <brian@thefinleys.com>
 #   - created
+# 2020.03.02 Brian Elliott Finley <brian@thefinleys.com>
+#   - tweaked to better support math with non-integer hex characters
 #
 
 use strict;
@@ -26,7 +28,9 @@ if($ARGV[1]) {
 my ($m1, $m2, $m3, $m4, $m5, $m6) = split(/:/, $mac);
 
 # Do a little IPv6-foo
-$m1 += 2;
+my $m1i = hex $m1;
+$m1i += 2;
+$m1 = lc sprintf("%X", $m1i);
 
 # And re-assemble into an IPv6 link local address
 my $ipv6 = "fe80::" . "${m1}${m2}:${m3}" . "ff:fe" . "${m4}:${m5}${m6}";
