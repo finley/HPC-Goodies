@@ -26,7 +26,7 @@ gpfs    test_gpfs_state
 misc    p2p_label_maker_input_maker
 misc    vnc.setup_ssh_tunnel
 misc    hpc_system_size_calculator
-misc    mac_to_ipv6
+misc    mac2ipv6
 misc    backup.lenovo_switch
 
 uefi    get_uefi_settings
