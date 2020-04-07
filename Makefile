@@ -121,17 +121,19 @@ install:  all
 release:
 	@echo "Please try 'make rpms' or 'make upload'"
 
-.PHONY: upload
-upload:  stable_release
+.PHONY: upload_rpms
+upload_rpms:  rpms
 	@echo 
-	@echo "I'm about to upload the following files to:"
-	@echo "  ~/src/www.systemimager.org/stable/${package}/"
+	@echo "I'm about to upload the following files to bintray:"
 	@echo "-----------------------------------------------------------------------"
 	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)-$(RELEASE)*.*
 	@echo
 	@echo "Hit <Enter> to continue..."
 	@read i
 	bintray-upload-rpms.sh el7 $(TOPDIR)/tmp/${package}*[-_]$(VERSION)-$(RELEASE)*.rpm
+	@echo
+	@echo "Now visit https://bintray.com/beta/#/systemimager/rpms?tab=packages to publish"
+	@echo
 
 
 .PHONY: rpm
@@ -145,7 +147,7 @@ rpms:  tarball
 	/bin/cp -i ${rpmbuild}/SRPMS/${package}-*$(VERSION)-$(RELEASE)*.rpm	$(TOPDIR)/tmp/
 	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
 	@echo
-	@echo "Try 'make upload' to upload for distribution."
+	@echo "Try 'make upload_rpms' to upload for distribution."
 	@echo
 
 .PHONY: deb
@@ -157,7 +159,7 @@ debs:  tarball
 	cd $(TOPDIR)/tmp/${package}-$(VERSION) && debuild -us -uc
 	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
 	@echo
-	@echo "Try 'make upload' to upload for distribution."
+	@echo "Try 'make upload_debs' to upload for distribution."
 	@echo
 
 .PHONY: tarball
