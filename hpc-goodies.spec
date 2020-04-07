@@ -1,7 +1,7 @@
 Summary: HPC Goodies
 Name: hpc-goodies
 Version: 4.10
-Release: 1%{?dist}
+Release: 2%{?dist}
 License: EPL
 Group: Applications/System
 URL: https://github.com/finley/HPC-Goodies

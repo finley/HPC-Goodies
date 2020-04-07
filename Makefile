@@ -124,17 +124,13 @@ release:
 #test_release:  tarball debs rpms
 test_release:  tarball rpms
 	@echo 
-	@echo "I'm about to upload the following files to:"
-	@echo "  ~/src/www.systemimager.org/testing/${package}/"
+	@echo "I'm about to upload the following files to bintray:"
 	@echo "-----------------------------------------------------------------------"
 	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
 	@echo
 	@echo "Hit <Enter> to continue..."
 	@read i
-	rsync -av --progress $(TOPDIR)/tmp/${package}*[-_]$(VERSION)*.* ~/src/www.systemimager.org/testing/${package}/
-	@echo
-	@echo "Now run:   cd ~/src/www.systemimager.org/ && make upload"
-	@echo
+	bintray-upload-rpms.sh el7 $(TOPDIR)/tmp/${package}*[-_]$(VERSION)*.rpm
 
 .PHONY: stable_release
 #stable_release:  tarball debs rpms
@@ -147,10 +143,7 @@ stable_release:  tarball rpms
 	@echo
 	@echo "Hit <Enter> to continue..."
 	@read i
-	rsync -av --progress $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.* ~/src/www.systemimager.org/stable/${package}/
-	@echo
-	@echo "Now run:   cd ~/src/www.systemimager.org/ && make upload"
-	@echo
+	bintray-upload-rpms.sh el7 $(TOPDIR)/tmp/${package}*[-_]$(VERSION)*.rpm
 
 .PHONY: rpm
 rpm:  rpms
@@ -158,7 +151,7 @@ rpm:  rpms
 .PHONY: rpms
 rpms:  tarball
 	@echo Bake them cookies, grandma!
-	rpmbuild -ta $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz
+	rpmbuild -ta --sign $(TOPDIR)/tmp/${package}-$(VERSION).tar.xz
 	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-*$(VERSION)-*.rpm $(TOPDIR)/tmp/
 	/bin/cp -i ${rpmbuild}/SRPMS/${package}-*$(VERSION)-*.rpm	$(TOPDIR)/tmp/
 	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
