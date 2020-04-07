@@ -25,8 +25,8 @@ docdir 		= ${datadir}/doc/${package}
 
 d			= $(DESTDIR)
 
-VERSION = $(shell cat VERSION | sed -e 's/-.*//')
-MINOR = $(shell cat VERSION   | sed -e 's/.*-//')
+VERSION = $(shell cat VERSION)
+RELEASE = $(shell cat RELEASE)
 
 TOPDIR := $(CURDIR)
 
@@ -48,7 +48,7 @@ DOC_FILES   	 = CREDITS LICENSE README TODO
 
 RPM_PKG_FILES 	 = hpc-goodies.spec
 DEB_PKG_FILES 	 = $(shell find debian/*)
-COMMON_PKG_FILES = Makefile README.bin-files-by-package VERSION
+COMMON_PKG_FILES = Makefile README.bin-files-by-package VERSION RELEASE
 ALL_FILES		 = $(BINSCRIPTS) $(PKGLIBFILES) $(INIT_SCRIPTS) $(DOC_FILES) $(HALF_BAKED_FILES) $(COMMON_PKG_FILES) $(RPM_PKG_FILES) $(DEB_PKG_FILES)
 
 
@@ -119,32 +119,20 @@ install:  all
 
 .PHONY: release
 release:
-	@echo "Please try 'make test_release' or 'make stable_release'"
+	@echo "Please try 'make rpms' or 'make upload'"
 
-.PHONY: test_release
-#test_release:  tarball debs rpms
-test_release:  tarball rpms
-	@echo 
-	@echo "I'm about to upload the following files to bintray:"
-	@echo "-----------------------------------------------------------------------"
-	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)-$(MINOR)*.*
-	@echo
-	@echo "Hit <Enter> to continue..."
-	@read i
-	bintray-upload-rpms.sh el7 $(TOPDIR)/tmp/${package}*[-_]$(VERSION)-$(MINOR)*.rpm
-
-.PHONY: stable_release
-#stable_release:  tarball debs rpms
-stable_release:  tarball rpms
+.PHONY: upload
+upload:  stable_release
 	@echo 
 	@echo "I'm about to upload the following files to:"
 	@echo "  ~/src/www.systemimager.org/stable/${package}/"
 	@echo "-----------------------------------------------------------------------"
-	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)-$(MINOR)*.*
+	@/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)-$(RELEASE)*.*
 	@echo
 	@echo "Hit <Enter> to continue..."
 	@read i
-	bintray-upload-rpms.sh el7 $(TOPDIR)/tmp/${package}*[-_]$(VERSION)-$(MINOR)*.rpm
+	bintray-upload-rpms.sh el7 $(TOPDIR)/tmp/${package}*[-_]$(VERSION)-$(RELEASE)*.rpm
+
 
 .PHONY: rpm
 rpm:  rpms
@@ -152,27 +140,33 @@ rpm:  rpms
 .PHONY: rpms
 rpms:  tarball
 	@echo Bake them cookies, grandma!
-	rpmbuild -ta --sign $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR).tar.xz
-	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-*$(VERSION)-$(MINOR)*.rpm 	$(TOPDIR)/tmp/
-	/bin/cp -i ${rpmbuild}/SRPMS/${package}-*$(VERSION)-$(MINOR)*.rpm	$(TOPDIR)/tmp/
-	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)-$(MINOR)*.*
+	rpmbuild -ta --sign $(TOPDIR)/tmp/${package}-$(VERSION)-$(RELEASE).tar.xz
+	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-*$(VERSION)-$(RELEASE)*.rpm 	$(TOPDIR)/tmp/
+	/bin/cp -i ${rpmbuild}/SRPMS/${package}-*$(VERSION)-$(RELEASE)*.rpm	$(TOPDIR)/tmp/
+	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
+	@echo
+	@echo "Try 'make upload' to upload for distribution."
+	@echo
 
 .PHONY: deb
 deb:  debs
 
 .PHONY: debs
 debs:  tarball
-	ln $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR).tar.xz $(TOPDIR)/tmp/${package}_$(VERSION)-$(MINOR).orig.tar.xz
-	cd $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR) && debuild -us -uc
-	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)-$(MINOR)*.*
+	ln $(TOPDIR)/tmp/${package}-$(VERSION)-$(RELEASE).tar.xz $(TOPDIR)/tmp/${package}_$(VERSION)-$(RELEASE).orig.tar.xz
+	cd $(TOPDIR)/tmp/${package}-$(VERSION) && debuild -us -uc
+	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
+	@echo
+	@echo "Try 'make upload' to upload for distribution."
+	@echo
 
 .PHONY: tarball
-tarball:  $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR).tar.xz.sign
-$(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR).tar.xz.sign:  $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR).tar.xz  
-	cd $(TOPDIR)/tmp && gpg --detach-sign -a --output ${package}-$(VERSION)-$(MINOR).tar.xz.sign ${package}-$(VERSION)-$(MINOR).tar.xz
-	cd $(TOPDIR)/tmp && gpg --verify ${package}-$(VERSION)-$(MINOR).tar.xz.sign
+tarball:  $(TOPDIR)/tmp/${package}-$(VERSION)-$(RELEASE).tar.xz.sign
+$(TOPDIR)/tmp/${package}-$(VERSION)-$(RELEASE).tar.xz.sign:  $(TOPDIR)/tmp/${package}-$(VERSION)-$(RELEASE).tar.xz  
+	cd $(TOPDIR)/tmp && gpg --detach-sign -a --output ${package}-$(VERSION)-$(RELEASE).tar.xz.sign ${package}-$(VERSION)-$(RELEASE).tar.xz
+	cd $(TOPDIR)/tmp && gpg --verify ${package}-$(VERSION)-$(RELEASE).tar.xz.sign
 
-$(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR).tar.xz:	 $(ALL_FILES)
+$(TOPDIR)/tmp/${package}-$(VERSION)-$(RELEASE).tar.xz:	 $(ALL_FILES)
 	make distclean
 	
 	@ echo ; echo "git stat . | egrep '^\s+modified:\s+'"
@@ -180,57 +174,40 @@ $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR).tar.xz:	 $(ALL_FILES)
 		&& (echo "WARN:  There are uncommitted changes to this repo."; echo "       Do you want cancel this build and commit them?"; read i ) \
 		|| true
 	
-	@(echo ; echo "WARN:  Did you update the version in VERSION (currently set to $(VERSION)-$(MINOR))?"; read i )
+	@(echo ; echo "WARN:  Did you update the version in VERSION (currently set to $(VERSION))?"; read i )
 	
-	@git tag | grep -qw v$(VERSION)-$(MINOR) \
-		|| (echo "WARN:  Do you want to cancel to tag this repo as v$(VERSION)-$(MINOR)?"; read i )
+	@git tag | grep -qw v$(VERSION) \
+		|| (echo "WARN:  Do you want to cancel to tag this repo as v$(VERSION)?"; read i )
 	
 	mkdir -p    $(TOPDIR)/tmp/
-	git clone . $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR)/
+	git clone . $(TOPDIR)/tmp/${package}-$(VERSION)/
 	#
-	# Use the latest Makefile and specfile for pre-release package testing
-	
-	@echo '# deb pkg bits first'
-	@echo 'git log `git describe --tags --abbrev=0`..HEAD --oneline > /tmp/${package}.gitlog'
-	@echo 'while read line; do dch --newversion $(VERSION)-$(MINOR) "$$line"; done < /tmp/hpc-goodies.gitlog'
-	@echo 'dch --release "" --distribution stable --no-force-save-on-release'
-	@echo 'head debian/changelog'
-	@echo
-	@echo '# RPM bits next'
-	@echo 'perl -pi -e "s/^Version:.*/Version:      $(VERSION)/" hpc-goodies.spec'
-	@echo 'perl -pi -e "s/^Release:\s+\d+/Release: $(MINOR)/" 	$(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR)/${package}.spec'
-	@echo 'head hpc-goodies.spec'
-	@echo '# dont worry about changelog entries in spec file for now...  #vim hpc-goodies.spec'
-	@read i
-
+	# Use the latest Makefile and specfile always
 	@echo "WARN: Including the following files from this directory in the tarball, whether"
-	@echo "      they are committed to the repo or not.  So be sure that these files are "
-	@echo "      committed before doing a release!"
+	@echo "      they are committed to the repo or not."
 	@echo 
-	@echo "      $(COMMON_PKG_FILES)"
-	@echo "      $(RPM_PKG_FILES)"
-	@echo "      $(DEB_PKG_FILES)"
+	@ $(foreach file, $(COMMON_PKG_FILES) $(RPM_PKG_FILES) $(DEB_PKG_FILES) , \
+		echo "    /bin/cp -a ${file} $(TOPDIR)/tmp/${package}-$(VERSION)/${file}";\
+			 /bin/cp -a ${file} $(TOPDIR)/tmp/${package}-$(VERSION)/${file}; )
+	
 	@echo 
-	@rsync -av $(COMMON_PKG_FILES) $(RPM_PKG_FILES) $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR)
-	@rsync -av $(DEB_PKG_FILES)                     $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR)/debian/
-	@echo "done..."
-	@read i
-
-	git log   > $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR)/CHANGE.LOG
-	rm -fr      $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR)/.git
-	perl -pi -e "s/^Version:.*/Version: $(VERSION)/" 			$(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR)/${package}.spec
-	perl -pi -e "s/^Release:\s+\d+/Release: $(MINOR)/" 	$(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR)/${package}.spec
-	find  $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR) -type f -exec chmod ug+r  {} \;
-	find  $(TOPDIR)/tmp/${package}-$(VERSION)-$(MINOR) -type d -exec chmod ug+rx {} \;
-	cd    $(TOPDIR)/tmp/ && tar -ch ${package}-$(VERSION)-$(MINOR) | xz > ${package}-$(VERSION)-$(MINOR).tar.xz
+	git log   > $(TOPDIR)/tmp/${package}-$(VERSION)/CHANGE.LOG
+	rm -fr      $(TOPDIR)/tmp/${package}-$(VERSION)/.git
+	rm -fr      $(TOPDIR)/tmp/${package}-$(VERSION)/.gitignore
+	
+	perl -pi -e "s/^Version:.*/Version: $(VERSION)/"	$(TOPDIR)/tmp/${package}-$(VERSION)/${package}.spec
+	perl -pi -e "s/^Release:\s+\d+/Release: $(RELEASE)/" 	$(TOPDIR)/tmp/${package}-$(VERSION)/${package}.spec
+	find  $(TOPDIR)/tmp/${package}-$(VERSION) -type f -exec chmod ug+r  {} \;
+	find  $(TOPDIR)/tmp/${package}-$(VERSION) -type d -exec chmod ug+rx {} \;
+	cd    $(TOPDIR)/tmp/ && tar -ch ${package}-$(VERSION) | xz > ${package}-$(VERSION)-$(RELEASE).tar.xz
 	ls -l $(TOPDIR)/tmp/
 
 
 .PHONY: clean
 clean:	c1eutil_clean
-	-rm -fr $(TOPDIR)/tmp/ $(TOPDIR)/${package}-$(VERSION)-$(MINOR)
+	-rm -fr $(TOPDIR)/tmp/ $(TOPDIR)/${package}-$(VERSION)
 	-rm -fr $(TOPDIR)/usr/share/man/
-	-rm -f  $(TOPDIR)/${package}-$(VERSION)-$(MINOR).tar.* $(TOPDIR)/${package}-*.rpm
+	-rm -f  $(TOPDIR)/${package}-$(VERSION)-$(RELEASE).tar.* $(TOPDIR)/${package}-*.rpm
 	-rm -f  set_dma_latency/set_dma_latency
 
 .PHONY: distclean

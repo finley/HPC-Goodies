@@ -1,15 +1,15 @@
 Summary: HPC Goodies
 Name: hpc-goodies
 Version: 4.10
-Release: 2%{?dist}
+Release: 1%{?dist}
 License: EPL
 Group: Applications/System
 URL: https://github.com/finley/HPC-Goodies
-Source: %{name}-%{version}.tar.xz
+Source: %{name}-%{version}-%{release}.tar.xz
 Packager: Brian Finley <brian@thefinleys.com>
 Vendor: Brian Finley <brian@thefinleys.com>
 Prefix: %{_prefix}
-BuildRoot: %{?_tmppath}%{!?_tmppath:/tmp}/%{name}-%{version}-%{release}-root
+BuildRoot: %{?_tmppath}%{!?_tmppath:/tmp}/%{name}-root
 Requires: %{name}-cpu  = %{version}-%{release}
 Requires: %{name}-gpfs = %{version}-%{release}
 Requires: %{name}-uefi = %{version}-%{release}
@@ -30,6 +30,7 @@ Requires: %{name}-libs = %{version}-%{release}
 Brian Finley's HPC Goodies for CPUs
 
 
+
 %package gpfs
 Summary: HPC Goodies for GPFS
 Group: Applications/System
@@ -39,6 +40,7 @@ Requires: %{name}-libs = %{version}-%{release}
 Brian Finley's HPC Goodies for GPFS
 
 
+
 %package ib
 Summary: HPC Goodies for InfiniBand
 Group: Applications/System
@@ -46,6 +48,7 @@ Requires: %{name}-libs = %{version}-%{release}
 
 %description ib
 Brian Finley's HPC Goodies for InfiniBand
+
 
 
 %package misc
@@ -58,6 +61,7 @@ Brian Finley's HPC Goodies (miscellaneous)
 - Includes the "half-baked" section.  Buyer beware...
 
 
+
 %package uefi
 Summary: HPC Goodies for UEFI
 Group: Applications/System
@@ -67,6 +71,7 @@ Requires: %{name}-libs = %{version}-%{release}
 Brian Finley's HPC Goodies for UEFI
 
 
+
 %package xcat
 Summary: HPC Goodies for xCAT
 Group: Applications/System
@@ -74,6 +79,7 @@ Requires: %{name}-libs = %{version}-%{release}
 
 %description xcat
 Brian Finley's HPC Goodies for xCAT
+
 
 
 %package libs
@@ -92,10 +98,12 @@ Brian Finley's HPC Goodies library files
 
 
 %install
+echo RPM_BUILD_ROOT: $RPM_BUILD_ROOT
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/
-make -f Makefile install DESTDIR=$RPM_BUILD_ROOT \
-    sbindir=%{_sbindir} initdir=%{_initrddir} \
+make install DESTDIR=$RPM_BUILD_ROOT \
+    sbindir=%{_sbindir} \
+    initdir=%{_initrddir} \
     datadir=%{_datadir}
 rm -rf $RPM_BUILD_ROOT%{_datadir}/doc
 
