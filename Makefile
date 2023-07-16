@@ -40,7 +40,7 @@ TOPDIR := $(CURDIR)
 
 BINCOMPILED    	 = c1eutil/c1eutil  set_dma_latency/set_dma_latency
 BINSCRIPTS    	 = $(shell find $(TOPDIR)/bin/*)
-SBINFILES    	 = $(BINSCRIPTS) $(BINCOMPILED)
+SBINFILES    	 = $(BINSCRIPTS) $(BINCOMPILED) etc/init.d/set-cpu-state
 PKGLIBFILES 	 = $(shell find $(TOPDIR)/usr/lib/*)
 INIT_SCRIPTS	 = $(shell find $(TOPDIR)/etc/init.d/*)
 HALF_BAKED_FILES = $(shell find $(TOPDIR)/half-baked/*)
@@ -91,7 +91,6 @@ install:  all
 	@ $(foreach file, $(INIT_SCRIPTS), \
 		echo install -m 755 ${file} ${d}/${initdir}/;\
   		install -m 755 ${file} ${d}/${initdir}/; )
-	test -e ${d}/${sbindir}/set-cpu-state || ln -s  ${d}/${initdir}/set-cpu-state ${d}/${sbindir}/set-cpu-state
 	
 	#
 	# Libs
@@ -143,9 +142,10 @@ rpm:  rpms
 .PHONY: rpms
 rpms:  tarball
 	@echo Bake them cookies, grandma!
-	rpmbuild -ta --sign $(TOPDIR)/tmp/${package}-$(VERSION)-$(RELEASE).tar.xz
-	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-*$(VERSION)-$(RELEASE)*.rpm 	$(TOPDIR)/tmp/
-	/bin/cp -i ${rpmbuild}/SRPMS/${package}-*$(VERSION)-$(RELEASE)*.rpm	$(TOPDIR)/tmp/
+	#rpmbuild -ta --sign $(TOPDIR)/tmp/${package}-$(VERSION)-$(RELEASE).tar.xz
+	rpmbuild -ta $(TOPDIR)/tmp/${package}-$(VERSION)-$(RELEASE).tar.xz
+	/bin/cp -i ${rpmbuild}/RPMS/*/${package}-*$(VERSION)-$(RELEASE)*.rpm	$(TOPDIR)/tmp/
+	/bin/cp -i ${rpmbuild}/SRPMS/${package}-*$(VERSION)-$(RELEASE)*.rpm		$(TOPDIR)/tmp/
 	/bin/ls -1 $(TOPDIR)/tmp/${package}[-_]*$(VERSION)*.*
 	@echo
 	@echo "Try 'make upload_rpms' to upload for distribution."

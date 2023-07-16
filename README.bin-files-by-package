@@ -20,6 +20,7 @@ ib      test_infiniband_route_info
 
 cpu     c1eutil
 cpu     set_dma_latency
+cpu     set-cpu-state
 
 gpfs    test_gpfs_state
 
