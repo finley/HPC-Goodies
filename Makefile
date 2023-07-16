@@ -91,6 +91,7 @@ install:  all
 	@ $(foreach file, $(INIT_SCRIPTS), \
 		echo install -m 755 ${file} ${d}/${initdir}/;\
   		install -m 755 ${file} ${d}/${initdir}/; )
+	test -e ${d}/${sbindir}/set-cpu-state || ln -s  ${d}/${initdir}/set-cpu-state ${d}/${sbindir}/set-cpu-state
 	
 	#
 	# Libs
