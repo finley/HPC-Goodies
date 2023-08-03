@@ -1,25 +1,27 @@
-- set-cpu-state
+#
+# set-cpu-state related
+#
+- Add support for AMD Boost
     
+- Per CPU model settings?
     - different best performance settings based on detected CPU class?
     - fall back to defaults otherwise?
     - separate lookup table, or embed in library? -> library.  users can
       edit conf file if prefer different settings
 
-
-- Add /etc/hpc-goodies/settings.conf which can be sourced be each tool
-  to get the following settings:
-
-    PARALLEL_SHELL_SYSTEM=(xcat|pdsh)
-        # add others as appropriate
-
+- Gracefully handle the situation where any of the capabilities are not
+  available based on HW or SW configuration
 
 - "consider adding a "triggers" capability to set-cpu-state, so that
   after making changes, any "trigger scripts" get executed for
   post-processing.
 
-  In other words, you run set-cpu-state and it turns off hyperthreading,
-  then, a torque trigger script restarts torque so that the MOM reports
-  the right number of cores for scheduling.
+    - Some programs may need to be restarted to see the new core count after
+      changing the active cores or hyperthreading settings.
+        - Example:
+            - run set-cpu-state and it turns off hyperthreading
+            - a set-cpu-state "trigger script" restarts torque so that the MOM
+              reports the right number of cores for scheduling.
 
 
 - "best practice configurations" via SSM and/or Puppet to include:
@@ -27,33 +29,33 @@
         - https://goo.gl/Kd1hB5
         - https://goo.gl/y7qwIp
 
-- 
-    New tool, proposed by Mark at TAMU:
-    - ethernet.label_switch_ports
 
-        Take xCAT node to port mappings, and set node name as label for
-        each port in each Ethernet switch.
+#
+# New tool, proposed by Mark at TAMU:
+#
+- ethernet.label_switch_ports
 
-        - Helps in tracking down issues when monitoring for problems in
-          switch fabric.
+    Take xCAT node to port mappings, and set node name as label for
+    each port in each Ethernet switch.
 
---
-flops-calculator
+    - Helps in tracking down issues when monitoring for problems in
+      switch fabric.
+
+
+#
+# New tool:  flops-calculator
+#
     - /etc/hpc-goodies/flops-calculator.conf.d/
     - /etc/hpc-goodies/flops-calculator.conf.d/Intel-E5-2698a.conf
     - /etc/hpc-goodies/flops-calculator.conf.d/ARM-1234.conf
     - /etc/hpc-goodies/flops-calculator.conf.d/NVidia-k80.conf
 
---
-/etc/rc.d/init.d/set-cpu-state
-    set defaults to:
-        GOVERNER=performance
-        USE_TURBO=yes
-        USE_HYPERTHREADING=no
-        C1E=off
-        C_STATE_LIMIT=2
 
-- backup_xcatdb -- Consider adding a "--git /path/to/local/repo" option
+# 
+# backup_xcatdb 
+# 
+
+  Consider adding a "--git /path/to/local/repo" option
   that will do a nightly xCAT DB dump into the repository, rather than a
   date stamped directory, and commit all changes.
 
@@ -61,42 +63,13 @@ flops-calculator
   xCAT DB from day to day via "git diff" or through the web interface of
   an upstream repo tool, such as gitlab.
 
---
 
-dma latency probabbly 
-5:04:56 PM
-◄
-the number is the maximum allowed... uhh... nanoseconds I think... 
-5:05:12 PM
-◄
-e.g. it *says* c2 takes 101 nanoseconds to come out of it, then that's
-too high 
-5:05:30 PM
-◄
-so you could say 'set_dma_latency 5' 
-5:05:45 PM
-◄
-and it would be the same as 2 in our case since nothing takes more than
-2 but less than 5 to come back 
-5:06:09 PM
-◄
-so you are really saying a limit of c1 rather than c2 with that value 
-
---
-
-in set-cpu-state
-    test for this case and handle gracefully:
-
-         RUNNING: chkconfig set-cpu-state --add ; chkconfig set-cpu-state on ; /etc/init.d/set-cpu-state start
-
-         /etc/init.d/hpc_goodies.functions: line 200: /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor: No such file or directory
-
---
-
-handle firmware location for set_hca_firmware_update
-
+# 
+# handle firmware location for set_hca_firmware_update
+# 
     - default to stated firmware location?  
         /usr/share/hpc_goodies/firmware/hcas for HCAs
         /usr/share/hpc_goodies/firmware/uefi for node firmware?
         (used by set_uefi_firmware_update)
+
 
