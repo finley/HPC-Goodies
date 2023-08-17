@@ -759,6 +759,8 @@ Usage:  $progname --config-file FILE [OPTION...]
         following format.  Hash marks are fine within a section, but an
         empty line indicates the end of a section.
 
+        If you don't have a config file yet, try --create-template.
+
 
     --delimiter DELIMITER
 
