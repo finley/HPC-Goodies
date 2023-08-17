@@ -1,0 +1,6 @@
+$ nodeconfig d3,d4 MellanoxNetworkAdapter-*.NetworkLinkType=Ethernet
+$ nodeconfig d3,d4 MellanoxNetworkAdapter-*.NetworkLinkType
+d3: MellanoxNetworkAdapter-0600.NetworkLinkType: Ethernet
+d3: MellanoxNetworkAdapter-0601.NetworkLinkType: Ethernet
+d4: MellanoxNetworkAdapter-0600.NetworkLinkType: Ethernet
+d4: MellanoxNetworkAdapter-0601.NetworkLinkType: Ethernet

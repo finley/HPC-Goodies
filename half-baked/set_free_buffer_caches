@@ -1,0 +1,19 @@
+#!/bin/sh
+
+#
+#   2015.10.01 Brian Finley
+#   - created based on an email from Chulho Kim
+#
+
+#
+# Writing to this will cause the kernel to drop clean caches, as well as
+# reclaimable slab objects like dentries and inodes.  Once dropped,
+# their memory becomes free.  For additional details see:
+#
+#       http://unix.stackexchange.com/a/17943
+#       http://www.mjmwired.net/kernel/Documentation/sysctl/vm.txt#186
+#
+
+sync
+echo 3 > /proc/sys/vm/drop_caches
+

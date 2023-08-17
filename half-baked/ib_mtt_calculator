@@ -1,0 +1,37 @@
+#!/bin/bash
+
+phys_mem_in_gb=$1
+
+
+if [ -z $phys_mem_in_gb ]; then
+    progname=$(basename $0)
+    echo
+    echo "Usage: $progname NN"
+    echo "  Where NN is physical memory of the node in GB".
+    echo
+    exit 1
+fi
+
+page_size_in_bytes=4096
+max_reg_mem_in_bytes=$(( $phys_mem_in_gb * 2 * 1024 * 1024 ))
+
+#
+# Algebraic conversion steps
+#
+#   max_reg_mem_in_bytes = (2^log_num_mtt) * 2 * page_size_in_bytes
+#   max_reg_mem_in_bytes / (2 * page_size_in_bytes) = (2^log_num_mtt)
+#   l (max_reg_mem_in_bytes / (2 * page_size_in_bytes)) = l (2^log_num_mtt)
+#   l (max_reg_mem_in_bytes / (2 * page_size_in_bytes)) = ( l (2) ) * log_num_mtt
+#   ( l (max_reg_mem_in_bytes / (2 * page_size_in_bytes))) / ( l (2) ) = log_num_mtt
+
+#
+# New algebraic formula
+#
+#   log_num_mtt = ( l (max_reg_mem_in_bytes / (2 * page_size_in_bytes))) / ( l (2) )
+log_num_mtt=$( echo "( l ($max_reg_mem_in_bytes / (2 * $page_size_in_bytes))) / ( l (2))" | bc -l | awk -F. '{print $1}' )
+
+echo "Use: log_num_mtt=$log_num_mtt"
+
+
+
+

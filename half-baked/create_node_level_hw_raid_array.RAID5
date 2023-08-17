@@ -1,0 +1,5 @@
+wget http://docs.avagotech.com/docs-and-downloads/docs-and-downloads/raid-controllers/raid-controllers-common-files/1.19.04_StorCLI.zip
+unzip *_StorCLI.zip
+rpm -Uvh storcli_all_os/Linux/storcli-1.19.04-1.noarch.rpm
+psh compute /opt/MegaRAID/storcli/storcli64 /c0 set jbod=off
+psh compute /opt/MegaRAID/storcli/storcli64 /c0 add vd type=r5 drives=62:0-5
