@@ -1,0 +1,6 @@
+See comments inside "set_dma_latency.c" for additional info.  This binary need
+not be run separately -- Use of the set-cpu-state will manage it's operation
+according to the set-cpu-state config file.  
+
+See "set-cpu-state --help" for details.
+

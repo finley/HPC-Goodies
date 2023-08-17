@@ -54,6 +54,16 @@
  * - scaling_min_speed set to nameplate frequency
  * - scaling_max_speed set to either the turbo p state or advertised
  *   frequency (latter for most predictive, consistent results)
+ *
+ *   Brian's comment update on scaling_max_speed: if scaling_min_speed is set
+ *   to nameplate frequency (max), then scaling_max_speed should _not_ be set
+ *   to turbo.  This would cause the CPU (already running all cores at max
+ *   fequency, and therefore max power, consuming all of TDP) to try and jump
+ *   cores up to an even higher power state (not possible) resulting in poor
+ *   performance as the socket backs off to protect itself.  set-cpu-state
+ *   prevents this scenario, when this tool is invoked as part of
+ *   set-cpu-state.
+ *
  * - scaling_governor set to ondemand
  * 
  * Catastrophe strikes if one is managed and not the other (if P states
