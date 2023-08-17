@@ -1,0 +1,141 @@
+#
+# Matt Ziegler
+# Brian Finley
+#
+#   2012.07.31 Brian Elliott Finley
+#   - modified to test for node's existence, and to give friendly advice
+#   2012.08.10 Brian Elliott Finley
+#   - wait for node to go active before attempting fs mount
+#
+
+#
+# This postscript is intended to re-join a freshly booted stateless or
+# statelite node or a freshly re-provisioned stateful node to the GPFS
+# cluster.  If the node in question has not already been added to the
+# GPFS cluster (mmaddnode), it will _not_ try to add it -- that action
+# can place a dramatic load on other GPFS nodes if several clients try
+# to add themselves at the same time.  Rather, it simply re-joins the
+# node if it has previously been added, and recommends the command to
+# use to add the node if it has not.
+#
+# Best practice would be to grep /var/log/messages on the xCAT master
+# for some portion of the addnode command below, and to use a single
+# command to add all of the outstanding nodes at once.
+#
+# Have fun!  -Brian
+#
+
+#set -x
+
+#
+# WARNING!!!  This script can be left in place, but wholly disabled by simply
+# uncommenting the "exit 0" below.
+#
+#exit 0
+
+logger -t xcat "$0: BEGIN"
+
+# Create GPFS dump directory -- just in case, you know...
+#mkdir -p /root/gpfs_dump
+
+# Don't do anything we don't tell ya ta do.
+chkconfig gpfs off
+
+# Get actual hostnames for MASTER
+MASTER_HOSTNAME=$(getent hosts $MASTER | awk '{print $2}' | sed 's/\.*//')
+
+# Make sure ib0 is actually up and functional before we begin
+echo -n Testing ping to ${MASTER_HOSTNAME}-ib
+while ! ping -c 1 ${MASTER_HOSTNAME}-ib >/dev/null 2>&1 ; do
+    echo -n .
+    sleep 1
+done
+echo
+
+# $MASTER will resolve to the xCAT management node (either master or service)
+# from which the client running this script booted.
+scp $MASTER:/var/mmfs/gen/mmsdrfs /var/mmfs/gen
+
+hostname=$(hostname -s)-ib
+grep -q $hostname /var/mmfs/gen/mmsdrfs
+if [ $? -eq 0 ]; then
+
+    logger -t xcat "$0: $hostname is a GPFS cluster member."
+    echo "Restoring node GPFS configuration."
+    /usr/lpp/mmfs/bin/mmsdrrestore
+
+    ####################################################################
+    #
+    # Comment this section to prevent auto-start of GPFS
+    #
+    echo "Waiting for GPFS to startup and achieve an active state."
+    #
+    while ! $( /usr/lpp/mmfs/bin/mmgetstate | grep -qw active ); do 
+        # So, GPFS must not be active yet.  Let's do something about it.
+        if $( /usr/lpp/mmfs/bin/mmgetstate | grep -qw down ); then
+            # Hmm.  It's not active, and it's in a "down" state.  Let's
+            # start it up...
+            /usr/lpp/mmfs/bin/mmstartup
+            for i in $(seq 1 10); do
+                echo -n .
+                sleep 1
+            done
+            echo -n . 
+            sleep 1
+        fi
+        #
+        # Give it a second to get going, and print a progress dot.
+        echo -n .
+        sleep 1
+    done
+    #
+    # This echo puts a carriage return at the end of the progress dots.
+    echo
+
+    #
+    # Excellent!  We must have succeeded in starting it up.  Let's move on to
+    # mounting file-systems, if so desired.
+    #
+    # Comment this line to prevent auto-mounting of non-auto-mounting
+    # file-systems
+    #
+    #MY_FILESYSTEMS="glade_work glade_scratch"
+    #MY_FILESYSTEMS="glade_work"
+    MY_FILESYSTEMS="all"
+    if [ ! -z $MY_FILESYSTEMS ]; then
+        for filesystem in $MY_FILESYSTEMS ; do
+            while ! $( /bin/df | grep -qw $filesystem ); do 
+                echo "Mounting $filesystem:"
+                /usr/lpp/mmfs/bin/mmmount $filesystem
+                for i in $(seq 1 3); do
+                    echo -n .
+                    sleep 1
+                done
+            done
+        done
+        #
+        # Ok, now take a deep breath, and count to ten, before we let any other
+        # postscripts try to use our freshly mounted filesystem.  Ten more seconds
+        # won't kill ya, just wait for it to settle...
+        #
+        for i in $(seq 1 10); do
+            echo -n .
+            sleep 1
+        done
+    fi
+
+    #
+    ####################################################################
+
+else
+
+    #
+    # We couldn't find our name in the doofus file.  Let's just tell our admins
+    # what to do next.
+    #
+    logger -t xcat "$0: Please run 'mmaddnode -N $hostname && mmchlicense client --accept -N $hostname'."
+
+fi
+
+logger -t xcat "$0: END"
+
